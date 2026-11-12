@@ -58,6 +58,7 @@ public class PoorMoney : UdonSharpBehaviour
 
     private bool _dataRestored = false;
     private long _lastTakeTime = 0;
+    private string _lastTimeLabelPrefix = null;
 
     private Transform _bobTransform;
     private Vector3 _bobStartLocalPos;
@@ -157,11 +158,7 @@ public class PoorMoney : UdonSharpBehaviour
         {
             string time = _FormatTime(remaining);
             InteractionText = _Text("WAIT") + " " + time;
-
-            if (timeLabel != null)
-            {
-                timeLabel.SetPrefixKeyAndSuffix(time, "", "");
-            }
+            _SetTimeLabel(time);
         }
         else
         {
@@ -174,12 +171,18 @@ public class PoorMoney : UdonSharpBehaviour
                 InteractionText = _Text("TAKE");
             }
 
-            if (timeLabel != null)
-            {
-                timeLabel.SetPrefixKeyAndSuffix("", "", "");
-            }
+            _SetTimeLabel("");
         }
 
+    }
+
+    // Update runs every frame; only repaint the label when the text actually
+    // changes, otherwise LocalizedText repaints (and logs) every frame.
+    private void _SetTimeLabel(string prefix)
+    {
+        if (timeLabel == null || prefix == _lastTimeLabelPrefix) return;
+        _lastTimeLabelPrefix = prefix;
+        timeLabel.SetPrefixKeyAndSuffix(prefix, "", "");
     }
 
     private string _Text(string key)

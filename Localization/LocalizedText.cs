@@ -8,6 +8,8 @@ public class LocalizedText : UdonSharpBehaviour
 {
     [SerializeField] private LocalizationManager localization;
     [SerializeField] private TextMeshProUGUI textElement;
+    [Tooltip("Log every repaint to the console. Off by default: dynamic labels (e.g. cooldown timers) repaint every frame.")]
+    [SerializeField] private bool verboseLogging = false;
 
     private string _prefix = "";
     private string _key;
@@ -79,7 +81,8 @@ public class LocalizedText : UdonSharpBehaviour
         if (localization == null || textElement == null) return;
         string suffix = string.IsNullOrEmpty(_suffixKey) ? _suffix : localization.GetText(_suffixKey);
         textElement.text = _prefix + localization.GetText(_key) + suffix;
-        Debug.Log($"[LocalizedText] _OnLanguageChanged '{gameObject.name}' key='{_key}' -> '{textElement.text}'");
+        if (verboseLogging)
+            Debug.Log($"[LocalizedText] _OnLanguageChanged '{gameObject.name}' key='{_key}' -> '{textElement.text}'");
     }
 
 #if !COMPILER_UDONSHARP && UNITY_EDITOR
