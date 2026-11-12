@@ -13,11 +13,19 @@ public class CardTheme : UdonSharpBehaviour
     public const string UnlockedKey = "_RAINSTORM/CARD_THEME_UNLOCKED";
     public const string EquippedKey = "_RAINSTORM/CARD_THEME_EQUIPPED";
     public const string DarkKey = "_RAINSTORM/CARD_THEME_DARK";
+    // Pulls-since-last-rare-or-better counter. A pull at PityEvery or beyond is
+    // forced to drop Dual or Gold.
+    public const string PityKey = "_RAINSTORM/GACHA_PITY";
 
-    [Tooltip("Card back design sold by this theme.")]
+    // One gacha pull costs this many chips, no matter which locked row's button
+    // was pressed.
+    private const int GachaPullPrice = 500;
+    private const int PityEvery = 10;
+
+    [Tooltip("Card back design this row shows. Locked rows act as gacha entries: their button pulls the machine instead of buying this specific back.")]
     [SerializeField] private CardBack cardBack;
 
-    [Tooltip("Price in chips.")]
+    [Tooltip("Legacy direct-buy price, kept serialized for scene compatibility. Unused since the gacha change - pulls cost GachaPullPrice.")]
     [SerializeField] private int price = 5000;
 
     [Tooltip("Button the player clicks to buy or equip this card back.")]
@@ -41,14 +49,29 @@ public class CardTheme : UdonSharpBehaviour
     private bool _dataRestored = false;
     private int _unlockedFlags = 1 << (int)CardBack.White;
     private int _equipped = (int)CardBack.White;
+    private int _pity = 0;
     private Sprite _lightSprite;
     private bool _lightCaptured = false;
+    private Notification _notification;
+    private LocalizationManager _localization;
 
     void Start()
     {
         if (udonChips == null)
         {
             udonChips = GameObject.Find("UdonChips").GetComponent<UdonChips>();
+        }
+
+        if (_notification == null)
+        {
+            GameObject n = GameObject.Find("Notification");
+            if (n != null) _notification = n.GetComponent<Notification>();
+        }
+
+        if (_localization == null)
+        {
+            GameObject l = GameObject.Find("Localization");
+            if (l != null) _localization = l.GetComponent<LocalizationManager>();
         }
 
         Refresh();
@@ -71,10 +94,17 @@ public class CardTheme : UdonSharpBehaviour
             _equipped = equipped;
         }
 
+        if (PlayerData.TryGetInt(player, PityKey, out int pity))
+        {
+            _pity = pity;
+        }
+
         _dataRestored = true;
         Refresh();
     }
 
+    // Button handler name is wired in Button.prefab, so it stays as is. An
+    // unlocked row equips its back; a locked row pulls the gacha machine.
     public void OnBuyClick()
     {
         if (!_dataRestored)
@@ -85,23 +115,118 @@ public class CardTheme : UdonSharpBehaviour
         int backIndex = (int)cardBack;
         int mask = 1 << backIndex;
 
-        if ((_unlockedFlags & mask) == 0)
-        {
-            if (udonChips == null || udonChips.money < price)
-            {
-                return;
-            }
-
-            udonChips.money -= price;
-            _unlockedFlags |= mask;
-            PlayerData.SetInt(UnlockedKey, _unlockedFlags);
-            Refresh();
-        }
-        else
+        if ((_unlockedFlags & mask) != 0)
         {
             PlayerData.SetInt(EquippedKey, backIndex);
             _BroadcastEquipped(backIndex);
             _NotifyDecks();
+        }
+        else
+        {
+            _Pull();
+        }
+    }
+
+    // One gacha pull: pay, roll a back from the whole non-White pool (commons
+    // Blue..Green 80%, rare Dual 15%, epic Gold 5%), then unlock it or report a
+    // duplicate. Every PityEvery-th pull is forced to rare-or-better, preferring a
+    // rare+ back that is still locked. Everything is per-player PlayerData, so the
+    // rolling client is the only one that needs to agree with itself.
+    private void _Pull()
+    {
+        if (udonChips == null || udonChips.money < GachaPullPrice)
+        {
+            _Notify(_Text("NOTIFY_NOT_ENOUGH_CHIPS") + GachaPullPrice + "c.");
+            return;
+        }
+        udonChips.money -= GachaPullPrice;
+
+        _pity++;
+        int back;
+        if (_pity >= PityEvery)
+        {
+            bool dualLocked = (_unlockedFlags & (1 << (int)CardBack.Dual)) == 0;
+            bool goldLocked = (_unlockedFlags & (1 << (int)CardBack.Gold)) == 0;
+            if (dualLocked && goldLocked) back = Random.Range(0, 2) == 0 ? (int)CardBack.Gold : (int)CardBack.Dual;
+            else if (dualLocked) back = (int)CardBack.Dual;
+            else if (goldLocked) back = (int)CardBack.Gold;
+            else back = Random.Range(0, 2) == 0 ? (int)CardBack.Gold : (int)CardBack.Dual;
+            _pity = 0;
+        }
+        else
+        {
+            int roll = Random.Range(0, 100);
+            if (roll < 80) back = Random.Range((int)CardBack.Blue, (int)CardBack.Dual); // Blue..Green
+            else if (roll < 95) back = (int)CardBack.Dual;
+            else back = (int)CardBack.Gold;
+            if (back == (int)CardBack.Dual || back == (int)CardBack.Gold) _pity = 0;
+        }
+        PlayerData.SetInt(PityKey, _pity);
+
+        int mask = 1 << back;
+        if ((_unlockedFlags & mask) != 0)
+        {
+            _Notify(_Text("GACHA_DUPLICATE") + _BackName(back));
+        }
+        else
+        {
+            _unlockedFlags |= mask;
+            PlayerData.SetInt(UnlockedKey, _unlockedFlags);
+            _Notify(_Text("GACHA_NEW") + _BackName(back));
+            if (_AllUnlocked()) _Notify(_Text("GACHA_COMPLETE"));
+        }
+
+        _BroadcastRefresh();
+    }
+
+    private bool _AllUnlocked()
+    {
+        // Every back except the free default White.
+        const int gachaMask = (1 << (int)CardBack.White) - 1;
+        return (_unlockedFlags & gachaMask) == gachaMask;
+    }
+
+    private string _BackName(int back)
+    {
+        switch (back)
+        {
+            case (int)CardBack.Gold: return _Text("BACK_GOLD");
+            case (int)CardBack.Blue: return _Text("BACK_BLUE");
+            case (int)CardBack.Red: return _Text("BACK_RED");
+            case (int)CardBack.Yellow: return _Text("BACK_YELLOW");
+            case (int)CardBack.Green: return _Text("BACK_GREEN");
+            case (int)CardBack.Dual: return _Text("BACK_DUAL");
+            default: return _Text("BACK_WHITE");
+        }
+    }
+
+    private string _Text(string key)
+    {
+        if (_localization == null) return key;
+        return _localization.GetText(key);
+    }
+
+    private void _Notify(string message)
+    {
+        if (_notification != null) _notification.Notify(message);
+    }
+
+    private void _BroadcastRefresh()
+    {
+        Transform parent = transform.parent;
+        if (parent == null)
+        {
+            Refresh();
+            return;
+        }
+
+        for (int i = 0; i < parent.childCount; i++)
+        {
+            CardTheme theme = parent.GetChild(i).GetComponent<CardTheme>();
+            if (theme != null)
+            {
+                theme.Refresh();
+            }
         }
     }
 
@@ -203,7 +328,7 @@ public class CardTheme : UdonSharpBehaviour
 
         if (!unlocked)
         {
-            buttonLabel.SetPrefixKeyAndSuffix("", "BUY", " (" + price + "c)");
+            buttonLabel.SetPrefixKeyAndSuffix("", "GACHA_PULL", " (" + GachaPullPrice + "c)");
         }
         else if (equipped)
         {

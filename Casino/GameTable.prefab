@@ -478,6 +478,7 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 404229154270611737}
   localization: {fileID: 0}
   textElement: {fileID: 6248819369234213290}
+  verboseLogging: 0
 --- !u!114 &404229154270611737
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -665,6 +666,7 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 3816110702178026033}
   localization: {fileID: 0}
   textElement: {fileID: 4487228910885633793}
+  verboseLogging: 0
 --- !u!114 &3816110702178026033
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -852,6 +854,7 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 125223275900981256}
   localization: {fileID: 0}
   textElement: {fileID: 1590801733294431003}
+  verboseLogging: 0
 --- !u!114 &125223275900981256
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1535,6 +1538,7 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 4633601796367115353}
   localization: {fileID: 0}
   textElement: {fileID: 7650923164703984175}
+  verboseLogging: 0
 --- !u!114 &4633601796367115353
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1775,6 +1779,7 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 9139266029912649349}
   localization: {fileID: 0}
   textElement: {fileID: 6337429919849069096}
+  verboseLogging: 0
 --- !u!114 &9139266029912649349
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2225,6 +2230,7 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 7873887818472073885}
   localization: {fileID: 0}
   textElement: {fileID: 7712191991663953116}
+  verboseLogging: 0
 --- !u!114 &7873887818472073885
 MonoBehaviour:
   m_ObjectHideFlags: 0

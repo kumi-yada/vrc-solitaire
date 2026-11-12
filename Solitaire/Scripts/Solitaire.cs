@@ -153,7 +153,7 @@ namespace org.kumagee
         [Tooltip("Generic interact on the start/quit button. Solitaire builds its hover prompt and tells it whether a press has to go through the confirmation canvas.")]
         public GameInteract StartInteract;
 
-        [Tooltip("Generic interact on the reshuffle trigger. Shown only while the local player's running game can still be restarted for free - no card has moved since the deal, in a normal game or a double-or-nothing one - and hidden the rest of the time. Wire its GameInteract callback to _OnReshuffle.")]
+        [Tooltip("Generic interact on the reshuffle trigger. Shown only while the local player's running game can still be restarted for free - no card has moved since the deal - and hidden the rest of the time. Wire its GameInteract callback to _OnReshuffle.")]
         public GameInteract ReshuffleInteract;
 
         [Tooltip("Generic interact on the undo trigger. Hidden until the local player's first move (when reshuffling is no longer possible); once visible it stays for the rest of the game, with the icon swapping between filled and outline to show whether an undo is currently possible. Wire its GameInteract callback to _OnUndoPressed.")]
@@ -177,12 +177,34 @@ namespace org.kumagee
         [Tooltip("Notification popup for player-facing messages (illegal moves, insufficient chips, etc.). Leave unassigned to silence them.")]
         public Notification Notification;
 
-        [Header("Double or Nothing")]
-        [Tooltip("Canvas shown after a win, offering to collect the winnings or stake them on a double-or-nothing game. Leave unassigned to disable the feature and pay out immediately as before. Wire its two buttons to _OnDoubleOrNothingCollect and _OnDoubleOrNothingDouble.")]
+        [Header("Higher or Lower")]
+        [Tooltip("Dialog shown after a win once the player confirms the higher-or-lower offer on the confirm canvas. Leave unassigned to disable the feature and pay out immediately as before. Expects a Cards/HiLoCardAnchorA/HiLoCardA and Cards/HiLoCardAnchorB/HiLoCardB pair of cards inside - one dealt face up, one face down - plus HiLoPickA/HiLoPickB interact zones over them whose GameInteract Solitaire claims for _OnHiLoPickA/_OnHiLoPickB, so the player picks the card they think is higher. While a round is live the start/quit button is disabled and the dialog's own controls answer; after a lost round the dialog stays up but the button is enabled again, and one press settles it.")]
         public GameObject DoubleOrNothingDialog;
 
-        [Tooltip("Label on the dialog showing the amount on offer. Solitaire writes it with the DOUBLE_OR_NOTHING key plus a chip suffix; add that key to the localization table.")]
+        [Tooltip("Label on the dialog. No longer shown - the pot amount is not displayed on the hi-lo canvas (the two cards carry the round); the label stays hidden in the dialog prefab. Kept wired so existing prefab references resolve.")]
         public LocalizedText DoubleOrNothingAmountLabel;
+
+        [Tooltip("Question label at the top of the hi-lo dialog. Solitaire rewrites it per round: HI_LO_PICK while a round waits for a pick, HI_LO_WIN/HI_LO_TIE/HI_LO_LOSE once it is settled. Wired to the dialog's Question label in the table prefabs; if unassigned, resolved from DoubleOrNothingDialog's Panel/Question child in Start.")]
+        public LocalizedText HiLoQuestionLabel;
+
+        [Tooltip("YES/NO button row inside the hi-lo dialog, below the cards. Its buttons call _ConfirmNewGame/_CancelNewGame, which resolve the between-rounds continue question. Shown only while that question is pending (never after a lost round - that leaves the dialog up with the start/quit button as the way out). If unassigned, resolved from DoubleOrNothingDialog's Panel/Buttons child in Start.")]
+        public GameObject HiLoContinueRow;
+
+        [Tooltip("Label of the between-rounds continue question inside the hi-lo dialog (below the cards). Shown only while the question is pending, with the HI_LO_CONTINUE key and no pot amount. If unassigned, resolved from DoubleOrNothingDialog's Panel/Text (TMP) child in Start.")]
+        public LocalizedText HiLoContinueLabel;
+
+        [Tooltip("Seconds a hi-lo card takes to glide from the deck to its spot when a round is dealt. Purely visual.")]
+        public float HiLoSlideDuration = 0.35f;
+
+        [Tooltip("Fallback only: seconds to wait before the next hi-lo pair is dealt in when no confirmation canvas is wired to ask continue-or-collect between rounds.")]
+        public float HiLoRoundDelay = 1.5f;
+
+        [Header("Debug")]
+        [Tooltip("Optional test trigger for the higher-or-lower dialog: assign any GameInteract here (a copy of the undo button works) and Solitaire claims it in Start. While your own game is running it offers _DebugTriggerHiLo, which marks the game as completely finished (won) and then offers the higher-or-lower game, so the whole post-win flow can be tested without playing a game out. Leave unassigned for no debug button.")]
+        public GameInteract DebugHiLoInteract;
+
+        [Tooltip("Payout simulated by _DebugTriggerHiLo when the running game has not accrued any payout yet - the pot the hi-lo game then stakes.")]
+        public float DebugHiLoStake = 100f;
 
         [Tooltip("Localization manager used to translate notification text. Falls back to a scene search if empty.")]
         [SerializeField] private LocalizationManager localization;
@@ -290,8 +312,7 @@ namespace org.kumagee
 
         // True once the dealer has moved (or drawn) a single card this game. While
         // false, an early quit refunds whatever the game put at risk - the entry
-        // fee in a normal game, the carried-over stake in a double-or-nothing one -
-        // because the player never actually played.
+        // fee - because the player never actually played.
         private bool cardsMoved;
 
         // ---- Undo
@@ -329,17 +350,58 @@ namespace org.kumagee
         // bonus before CreditPayout runs, so the gap is exactly the bonus).
         private float payoutCredited;
 
-        // Double-or-nothing state. Only the dealer's client ever runs the win/payout
-        // path, so none of this needs to sync - spectators see the same board either
-        // way and never touch the money.
+        // Higher-or-lower state, shown on the win dialog. Only the dealer's client
+        // ever runs the win/payout path, so none of this needs to sync - spectators
+        // see the same board either way and never touch the money.
         //
-        // doubleStake is the amount carried over from a previous win and put at risk,
-        // including whatever the dealer clawed back out of their wallet to do so. A
-        // double-or-nothing win pays exactly twice this - no streak multiplier, no
-        // foundation accrual folded in - and a loss forfeits it. Quitting before a
-        // single card has moved refunds it instead (see _ConfirmNewGame).
-        private bool doubleOrNothingGame;
-        private float doubleStake;
+        // hiLoStake is the pot at risk: the previous win, with the already-credited
+        // part clawed back out of the wallet on the first pick. A correct pick
+        // doubles it, a wrong one forfeits it, a tie leaves it standing.
+        //
+        // Each round deals two real cards onto the dialog (see DoubleOrNothingDialog):
+        // A is open, B is face down, and the player picks the one they believe is
+        // higher by interacting with it. hiLoRankA/SuitA and hiLoRankB/SuitB hold
+        // their values (rank 1..13, suit 0..3) until the pick reveals B and settles.
+        private bool hiLoGame;
+        private float hiLoStake;
+        private int hiLoRankA;
+        private int hiLoSuitA;
+        private int hiLoRankB;
+        private int hiLoSuitB;
+        // True while a round is on the table waiting for the player to pick a card.
+        private bool hiLoAwaitingPick;
+        // True from the second round on: the previous round's face-down card (just
+        // revealed by the pick) is carried over as the new open card. The first
+        // round of a hi-lo game has no previous card, so both cards are random.
+        private bool hiLoCarryOver;
+        // Set while the higher-or-lower offer waits on the confirmation canvas:
+        // the dialog does not open and nothing is staked until the offer is
+        // confirmed and ShowHiLo runs.
+        private bool hiLoOfferPending;
+        // Set after a hi-lo round is resolved (won or tied) while the
+        // confirmation canvas asks whether to deal the next pair or collect.
+        // The next cards are not dealt - so not even the open one is visible -
+        // until the player confirms continue.
+        private bool hiLoContinuePending;
+
+        // The two hi-lo cards and their pick interacts, resolved from
+        // DoubleOrNothingDialog in Start by name (Cards/HiLoCardAnchorA/HiLoCardA and
+        // Cards/HiLoCardAnchorB/HiLoCardB, each with an "Interact" child), so the
+        // shared dialog prefab needs no per-instance wiring for them.
+        private CardLogic hiLoCardA;
+        private CardLogic hiLoCardB;
+        private Transform hiLoAnchorA;
+        private Transform hiLoAnchorB;
+        private GameInteract hiLoInteractA;
+        private GameInteract hiLoInteractB;
+        // The "Question" label at the top of the dialog: HI_LO_PICK while a round
+        // waits for a pick, the result key (HI_LO_WIN/HI_LO_TIE/HI_LO_LOSE) once it
+        // is settled - so a lost round still up says why.
+        private LocalizedText hiLoQuestionLabel;
+        // The in-canvas continue question (label + YES/NO row below the cards),
+        // shown only while hiLoContinuePending.
+        private LocalizedText hiLoContinueLabel;
+        private GameObject hiLoContinueRow;
 
         // PlayerData prefixes for the lifetime tally, one game/won counter per mode.
         // The mode name is appended so Klondike, Spider and Canfield keep separate
@@ -429,6 +491,31 @@ namespace org.kumagee
             return Networking.IsOwner(local, gameObject);
         }
 
+        // True while a higher-or-lower game is running on this table with a live
+        // pot: from ShowHiLo until the player cashes out (_OnHiLoCollect) or
+        // forfeits it with a lost pick - a loss drops hiLoStake to zero while the
+        // dialog stays up showing why, but nothing is at stake any more. An offer
+        // that was never confirmed (hiLoOfferPending) stakes nothing and is not
+        // active. Local-only like won: only the dealer's client ever runs hi-lo,
+        // and FindActiveDeckFor only scans the local player's own decks.
+        public bool _IsHiLoActive()
+        {
+            return hiLoGame && hiLoStake > 0f;
+        }
+
+        // True while a higher-or-lower round is actually live on the dialog:
+        // waiting for a pick, or waiting on the continue/collect row. The
+        // start/quit button is disabled for that window - the dialog has its
+        // own controls then, so the button needs no collect state of its own.
+        // A lost round leaves the dialog up with an empty pot and nothing
+        // pending; that counts as finished, so the button is enabled again
+        // and one press settles it (see _OnStartPressed).
+        private bool _IsHiLoRunning()
+        {
+            if (!hiLoGame || DoubleOrNothingDialog == null || !DoubleOrNothingDialog.activeSelf) return false;
+            return hiLoAwaitingPick || hiLoContinuePending || hiLoStake > 0f;
+        }
+
         private void Start()
         {
             if (localization == null)
@@ -471,6 +558,12 @@ namespace org.kumagee
                 ReshuffleInteract.Callback = (UdonBehaviour)GetComponent(typeof(UdonBehaviour));
                 ReshuffleInteract.CallbackEvent = nameof(_OnReshuffle);
             }
+            if (DebugHiLoInteract != null)
+            {
+                DebugHiLoInteract.Callback = (UdonBehaviour)GetComponent(typeof(UdonBehaviour));
+                DebugHiLoInteract.CallbackEvent = nameof(_DebugTriggerHiLo);
+            }
+            if (DoubleOrNothingDialog != null) _ResolveHiLoRefs();
 
             // A pivot under this object (ChangeAngle) moves the table's card places
             // with it, but the deck is a per-player PlayerObject parked at CardHome
@@ -487,6 +580,83 @@ namespace org.kumagee
             // Registered before the refresh below so the pivot is told the table's
             // state on the same pass that lights up the start button.
             _RefreshStartInteractable();
+        }
+
+        // Finds the hi-lo cards and their pick interacts under the dialog and claims
+        // the interacts for this behaviour, the same way the undo/reshuffle triggers
+        // are claimed above. Resolved by name so the shared dialog prefab carries no
+        // per-instance wiring: Cards/HiLoCardAnchorA/HiLoCardA plus a HiLoPickA zone,
+        // Cards/HiLoCardAnchorB/HiLoCardB plus a HiLoPickB zone. The pick zones are
+        // plain GameObjects sitting over the cards (their box collider covers the
+        // card), because instance-added children of the card prefab are fragile.
+        private void _ResolveHiLoRefs()
+        {
+            // Serialized ref first; fall back to the dialog's Panel/Question child
+            // when unwired. The label sits under Panel, not directly under the root,
+            // so Find needs the path - a bare name only searches direct children.
+            hiLoQuestionLabel = HiLoQuestionLabel;
+            if (hiLoQuestionLabel == null)
+            {
+                Transform question = DoubleOrNothingDialog.transform.Find("Panel/Question");
+                if (question != null) hiLoQuestionLabel = question.GetComponent<LocalizedText>();
+            }
+
+            hiLoContinueRow = HiLoContinueRow;
+            if (hiLoContinueRow == null)
+            {
+                Transform row = DoubleOrNothingDialog.transform.Find("Panel/Buttons");
+                if (row != null) hiLoContinueRow = row.gameObject;
+            }
+            hiLoContinueLabel = HiLoContinueLabel;
+            if (hiLoContinueLabel == null)
+            {
+                Transform label = DoubleOrNothingDialog.transform.Find("Panel/Text (TMP)");
+                if (label != null) hiLoContinueLabel = label.GetComponent<LocalizedText>();
+            }
+            _SetHiLoContinueVisible(false);
+
+            Transform cardsRoot = DoubleOrNothingDialog.transform.Find("Cards");
+            if (cardsRoot == null) return;
+
+            hiLoAnchorA = cardsRoot.Find("HiLoCardAnchorA");
+            hiLoAnchorB = cardsRoot.Find("HiLoCardAnchorB");
+
+            if (hiLoAnchorA != null)
+            {
+                Transform card = hiLoAnchorA.Find("HiLoCardA");
+                if (card != null) hiLoCardA = card.GetComponent<CardLogic>();
+                Transform pick = hiLoAnchorA.Find("HiLoPickA");
+                if (pick != null) hiLoInteractA = pick.GetComponent<GameInteract>();
+            }
+            if (hiLoAnchorB != null)
+            {
+                Transform card = hiLoAnchorB.Find("HiLoCardB");
+                if (card != null) hiLoCardB = card.GetComponent<CardLogic>();
+                Transform pick = hiLoAnchorB.Find("HiLoPickB");
+                if (pick != null) hiLoInteractB = pick.GetComponent<GameInteract>();
+            }
+
+            UdonBehaviour self = (UdonBehaviour)GetComponent(typeof(UdonBehaviour));
+            if (hiLoInteractA != null)
+            {
+                hiLoInteractA.Callback = self;
+                hiLoInteractA.CallbackEvent = nameof(_OnHiLoPickA);
+                hiLoInteractA._SetVisible(false);
+            }
+            if (hiLoInteractB != null)
+            {
+                hiLoInteractB.Callback = self;
+                hiLoInteractB.CallbackEvent = nameof(_OnHiLoPickB);
+                hiLoInteractB._SetVisible(false);
+            }
+        }
+
+        // Shows or hides the in-canvas continue question (label + YES/NO row below
+        // the cards). Only ever up while hiLoContinuePending.
+        private void _SetHiLoContinueVisible(bool visible)
+        {
+            if (hiLoContinueRow != null) hiLoContinueRow.SetActive(visible);
+            if (hiLoContinueLabel != null) hiLoContinueLabel.gameObject.SetActive(visible);
         }
 
         private void Init(VRCPlayerApi dealer)
@@ -683,6 +853,12 @@ namespace org.kumagee
                 {
                     if (!Utilities.IsValid(found[d])) continue;
                     if (found[d].InActiveGame) return true;
+                    // A won game is free to walk away from - but not while its
+                    // higher-or-lower game is still running: the pot is at stake
+                    // until the player cashes out or loses, so that table still
+                    // counts as busy. An offer never confirmed stakes nothing.
+                    Solitaire table = found[d].Solitaire;
+                    if (table != null && table._IsHiLoActive()) return true;
                 }
             }
             return false;
@@ -1319,6 +1495,15 @@ namespace org.kumagee
         // through arrive here.
         public void _OnStartPressed()
         {
+            // While the higher-or-lower offer is up the start button declines it:
+            // post-win that pays the win out straight away, mid-game it just
+            // closes the canvas and the game continues.
+            if (hiLoOfferPending)
+            {
+                _CancelNewGame();
+                return;
+            }
+
             if (gameStarted)
             {
                 if (!_IsLocalGameOwner())
@@ -1328,12 +1513,23 @@ namespace org.kumagee
                     return;
                 }
 
+                // While a hi-lo round is live the start button is disabled and
+                // the dialog's own controls answer instead; after a lost round
+                // the dialog stays up but the button is enabled again (the round
+                // counts as finished). The press settles the empty pot here and,
+                // the game being won, resets the table in the same breath - one
+                // click, no confirm. The dialog is normally up only after a
+                // win, but the debug trigger opens it mid-game too, so this is
+                // checked before the won branch.
+                if (hiLoGame && DoubleOrNothingDialog != null && DoubleOrNothingDialog.activeSelf)
+                {
+                    _OnHiLoCollect();
+                    if (won) _ResetGame();
+                    return;
+                }
+
                 if (won)
                 {
-                    // A pending double-or-nothing decision owns the flow; the canvas is
-                    // the only way forward, so the start button does nothing until the
-                    // player collects or doubles (which would otherwise drop the pot).
-                    if (DoubleOrNothingDialog != null && DoubleOrNothingDialog.activeSelf) return;
                     _ResetGame();
                     return;
                 }
@@ -1347,6 +1543,33 @@ namespace org.kumagee
         // the pre-deal state, then flash the total earned on the banner.
         public void _ConfirmNewGame()
         {
+            // A pending between-rounds hi-lo question owns this button: confirming
+            // deals the next pair of cards rather than quitting.
+            if (hiLoContinuePending)
+            {
+                hiLoContinuePending = false;
+                if (ConfirmDialog != null) ConfirmDialog.SetActive(false);
+                // An empty pot has nothing to stake - YES settles as a collect
+                // rather than dealing a free round.
+                if (hiLoStake <= 0f)
+                {
+                    _OnHiLoCollect();
+                    return;
+                }
+                _DealHiLoRound();
+                RefreshStartLabel();
+                return;
+            }
+            // A pending higher-or-lower offer owns this button: confirming starts
+            // the hi-lo game (opens the dialog) rather than quitting.
+            if (hiLoOfferPending)
+            {
+                hiLoOfferPending = false;
+                if (ConfirmDialog != null) ConfirmDialog.SetActive(false);
+                ShowHiLo();
+                RefreshStartLabel();
+                return;
+            }
             if (ConfirmDialog != null) ConfirmDialog.SetActive(false);
             if (won)
             {
@@ -1355,31 +1578,15 @@ namespace org.kumagee
             }
             RecordGameLost();
             float earned;
-            if (doubleOrNothingGame)
+            if (hiLoGame)
             {
-                if (!cardsMoved && doubleStake > 0f && UdonChips != null)
-                {
-                    // Nothing was played, so the stake never went at risk: hand the
-                    // whole pot straight back, exactly as it stood before the double.
-                    // The banner reads payoutEarned, so park the refund there - and
-                    // mark it credited, so no later CreditPayout pays it out twice.
-                    UdonChips.money += doubleStake;
-                    payoutEarned = doubleStake;
-                    payoutCredited = doubleStake;
-                    earned = doubleStake;
-                }
-                else
-                {
-                    // Quitting a double-or-nothing game forfeits the whole pot: the
-                    // stake carried over from the previous win and this game's
-                    // deferred accrual. Nothing was credited, so there is nothing
-                    // to claw back - just drop it.
-                    payoutEarned = 0f;
-                    payoutCredited = 0f;
-                    earned = 0f;
-                }
-                doubleStake = 0f;
-                doubleOrNothingGame = false;
+                // Unreachable in practice - quitting is blocked while the dialog is
+                // up - but if it ever happens the pot is simply dropped.
+                payoutEarned = 0f;
+                payoutCredited = 0f;
+                earned = 0f;
+                hiLoStake = 0f;
+                hiLoGame = false;
             }
             else
             {
@@ -1405,18 +1612,42 @@ namespace org.kumagee
             RefreshWinMessage();
         }
 
-        // User backed out; just close the confirmation dialog.
+        // User backed out; just close the confirmation dialog. A pending
+        // higher-or-lower offer is declined: after a win that pays the win out
+        // immediately, mid-game (debug trigger) there is nothing to settle and
+        // the game simply continues.
         public void _CancelNewGame()
         {
+            // Declining the between-rounds hi-lo question (NO) only settles the
+            // hi-lo game: the pot as it stands is credited and the canvas/dialog
+            // hides. It does not quit the underlying game - the start/quit
+            // button still does that, same as after a lost round.
+            if (hiLoContinuePending)
+            {
+                hiLoContinuePending = false;
+                _OnHiLoCollect();
+                return;
+            }
+            if (hiLoOfferPending)
+            {
+                hiLoOfferPending = false;
+                if (ConfirmDialog != null) ConfirmDialog.SetActive(false);
+                if (won)
+                {
+                    CreditPayout();
+                    RefreshWinMessage();
+                    RefreshStartLabel();
+                }
+                return;
+            }
             if (ConfirmDialog != null) ConfirmDialog.SetActive(false);
         }
 
         // Restart the running game from scratch. Only offered while not a single
         // card has moved since the deal, so the game was never actually played: the
         // player gets a fresh deal for whatever the game already cost them - the
-        // entry fee, or the double-or-nothing stake - exactly as if they had quit
-        // for the refund and pressed Start again, but without the table ever
-        // leaving their game.
+        // entry fee - exactly as if they had quit for the refund and pressed Start
+        // again, but without the table ever leaving their game.
         public void _OnReshuffle()
         {
             if (!_IsLocalGameOwner()) return;
@@ -1433,9 +1664,7 @@ namespace org.kumagee
         }
 
         // Whether the running game can still be restarted for free: no card has
-        // moved since the deal. A double-or-nothing stake riding on the game is not
-        // a bar - the fresh deal is the same bet, so the stake simply stays at risk
-        // across the reshuffle. The local-owner test lives in the caller, since
+        // moved since the deal. The local-owner test lives in the caller, since
         // cardsMoved is only ever set on the dealer's own client.
         private bool _CanReshuffle()
         {
@@ -1486,7 +1715,7 @@ namespace org.kumagee
 
             // If the card landed on a foundation, the move earned a payout; claw
             // it back so the undo is a true revert.
-            if (IsFoundationChain(card.PrevSlot) && FoundationPayout > 0f && !doubleOrNothingGame)
+            if (IsFoundationChain(card.PrevSlot) && FoundationPayout > 0f && !hiLoGame)
             {
                 float reward = FoundationPayout;
                 payoutEarned -= reward;
@@ -1576,12 +1805,15 @@ namespace org.kumagee
         // Shows or hides the undo trigger and swaps its icon. The button stays
         // hidden until the local player's first move - the same moment the
         // reshuffle button disappears - then remains visible for the rest of the
-        // running, non-won game that is not mid-deal; the icon shows whether an
-        // undo is actually possible right now.
+        // running game that is not mid-deal; the icon shows whether an undo is
+        // actually possible right now. A finished game always disables it: a won
+        // board has nothing left to undo, and every higher-or-lower state on top
+        // of a win (offer, game, between-rounds question) counts as finished too.
         private void _RefreshUndoInteractable()
         {
             if (UndoInteract == null) return;
-            bool visible = gameStarted && !dealing && !won && _IsLocalGameOwner() && cardsMoved;
+            bool finished = won || hiLoGame || hiLoOfferPending || hiLoContinuePending;
+            bool visible = gameStarted && !dealing && !finished && _IsLocalGameOwner() && cardsMoved;
             UndoInteract._SetVisible(visible);
             if (visible) UndoInteract._SetInteractionText(_Text("UNDO"));
 
@@ -1593,14 +1825,26 @@ namespace org.kumagee
             }
         }
 
+        // Shows the debug hi-lo trigger only while the local player's own game is
+        // running and no higher-or-lower dialog is up yet - exactly the window in
+        // which _DebugTriggerHiLo would do something. An unassigned interact means
+        // no debug button at all.
+        private void _RefreshDebugHiLoInteractable()
+        {
+            if (DebugHiLoInteract == null) return;
+            bool visible = gameStarted && !dealing && !won && !hiLoGame && !hiLoOfferPending && _IsLocalGameOwner();
+            DebugHiLoInteract._SetVisible(visible);
+            if (visible) DebugHiLoInteract._SetInteractionText(_Text("DEBUG_HILO"));
+        }
+
         // Whether the running game still qualifies for a refund: no card has moved
-        // since the deal, and something is actually at risk - the entry fee in a
-        // normal game, or the carried-over stake in a double-or-nothing one. A
-        // free table's normal game has nothing to refund, so it just quits.
+        // since the deal, and the entry fee is actually at risk. A pending
+        // higher-or-lower dialog never reaches here - quitting is blocked while it
+        // is up - so it simply does not refund.
         private bool _CanRefund()
         {
             if (cardsMoved) return false;
-            if (doubleOrNothingGame) return doubleStake > 0f && UdonChips != null;
+            if (hiLoGame) return false;
             if (EntryFee <= 0f) return false;
             if (UdonChips == null) return false;
             return true;
@@ -1616,11 +1860,23 @@ namespace org.kumagee
             RefreshStartLabel();
         }
 
-        // Rewrites the confirmation dialog's message: while the game can still be
-        // refunded it asks "Refund the game?", otherwise the usual quit confirmation.
+        // Rewrites the confirmation dialog's message: while a hi-lo round waits on
+        // a continue/collect choice it asks that, while the initial offer waits it
+        // asks to stake the payout, and otherwise it is the usual quit/refund
+        // confirmation.
         private void _RefreshConfirmDialogText()
         {
             if (ConfirmDialogLabel == null) return;
+            if (hiLoContinuePending)
+            {
+                ConfirmDialogLabel.SetPrefixKeyAndSuffix("", "HI_LO_CONTINUE", " " + BuildHiLoStakeAmount() + "c");
+                return;
+            }
+            if (hiLoOfferPending)
+            {
+                ConfirmDialogLabel.SetPrefixKeyAndSuffix("", "HI_LO_CONFIRM", " " + BuildPayoutAmount() + "c");
+                return;
+            }
             ConfirmDialogLabel.SetPrefixKeyAndSuffix("", _CanRefund() ? "REFUND_CONFIRM" : "QUIT_CONFIRM", "");
         }
 
@@ -1680,9 +1936,9 @@ namespace org.kumagee
         private void AccumulateFoundationReward(int cardCount)
         {
             if (FoundationPayout <= 0f) return;
-            // Double-or-nothing is a pure bet on the staked amount: cards reaching a
-            // foundation accrue nothing, so the win is exactly twice the stake.
-            if (doubleOrNothingGame) return;
+            // A pending higher-or-lower game accrues nothing on the board: the pot
+            // is the only thing at stake.
+            if (hiLoGame) return;
             float reward = FoundationPayout * cardCount;
             payoutEarned += reward;
             if (UdonChips != null)
@@ -1767,9 +2023,9 @@ namespace org.kumagee
                     return;
                 }
 
-                // A double-or-nothing game stakes the previous win instead of charging a
-                // fresh entry fee - the winnings already in the pot are the buy-in.
-                if (!doubleOrNothingGame && !TryPayEntryFee())
+                // A pending higher-or-lower dialog blocks dealing (the start button
+                // cashes out instead), so a fresh game always charges the entry fee.
+                if (!hiLoGame && !TryPayEntryFee())
                 {
                     Debug.Log($"Solitaire: Not enough chips to start a {Mode} game (fee {_GetEntryFee()}).");
                     ShowNotificationSuffix("NOTIFY_NOT_ENOUGH_CHIPS", BuildEntryFeeAmount() + "c.");
@@ -2439,6 +2695,10 @@ namespace org.kumagee
             if (Utilities.IsValid(local)) localOwner = ownerId == local.playerId;
 
             bool spectator = running && !localOwner;
+            // Hidden while someone else's game runs, and while a live hi-lo
+            // round is up on the dealer's own client - the dialog owns the
+            // flow then. A lost round no longer counts (see _IsHiLoRunning).
+            bool hidden = spectator || _IsHiLoRunning();
             bool refund = gameStarted && _CanRefund();
             bool quit = gameStarted && !_CanRefund();
             bool start = !gameStarted;
@@ -2453,17 +2713,17 @@ namespace org.kumagee
                 else if (start) icon = StartIcon;
 
                 if (icon != null) StartButtonIcon.sprite = icon;
-                StartButtonIcon.enabled = !spectator && icon != null;
+                StartButtonIcon.enabled = !hidden && icon != null;
             }
 
             if (StartButtonLabel != null)
             {
                 if (StartButtonIcon != null)
                 {
-                    // An icon is showing (or the button is hidden for a
-                    // spectator); the text label only covers the refund state
-                    // when no refund icon was assigned.
-                    if (spectator || !refund || RefundIcon == null)
+                    // An icon is showing (or the button is hidden); the text
+                    // label only covers the refund state when no refund icon
+                    // was assigned.
+                    if (hidden || !refund || RefundIcon == null)
                     {
                         StartButtonLabel.SetPrefixKeyAndSuffix("", "", "");
                     }
@@ -2472,7 +2732,7 @@ namespace org.kumagee
                         StartButtonLabel.SetPrefixKeyAndSuffix("", "REFUND", "");
                     }
                 }
-                else if (spectator)
+                else if (hidden)
                 {
                     StartButtonLabel.SetPrefixKeyAndSuffix("", "", "");
                 }
@@ -2490,6 +2750,7 @@ namespace org.kumagee
             RefreshStartPrompt();
             RefreshReshuffleInteractable();
             _RefreshUndoInteractable();
+            _RefreshDebugHiLoInteractable();
         }
 
         // Builds the GameInteract hover prompt and tells it whether the press has
@@ -2507,11 +2768,19 @@ namespace org.kumagee
             string key;
             if (gameStarted)
             {
+                // No collect state: while a hi-lo game runs the button is
+                // disabled entirely (_RefreshStartInteractable) and the hi-lo
+                // dialog answers with its own controls.
                 key = _CanRefund() ? "REFUND" : "QUIT";
-                // A won game just resets, and a pending double-or-nothing choice owns
-                // the flow - neither needs a confirmation in front of it.
-                bool doNothing = DoubleOrNothingDialog != null && DoubleOrNothingDialog.activeSelf;
-                confirm = !won && !doNothing;
+                // A won game just resets, and a pending higher-or-lower choice owns
+                // the flow - neither needs a confirmation in front of it. The
+                // initial hi-lo offer itself is the confirmation (on the confirm
+                // canvas), so while it is up the start button toggles that canvas
+                // instead of firing straight through. The between-rounds question
+                // lives inside the hi-lo canvas (where the button is disabled
+                // anyway); on the confirm canvas it confirms.
+                bool continueInCanvas = hiLoContinueRow != null || hiLoContinueLabel != null;
+                confirm = hiLoOfferPending || (hiLoContinuePending && !continueInCanvas) || !won;
             }
             else
             {
@@ -2547,12 +2816,17 @@ namespace org.kumagee
             RefreshStartPrompt();
             _RefreshUndoInteractable();
             RefreshReshuffleInteractable();
+            _RefreshDebugHiLoInteractable();
         }
 
         // The start/quit button only invites an interact when no game is running
         // (anyone may deal) or the local player owns the current one (Quit). While
         // another player is mid-game the collider drops so they can't start a
-        // competing deal. Runs locally on each client; the synced ownerId drives it.
+        // competing deal. It also drops while a hi-lo round is live on the
+        // higher-or-lower dialog (pick zones / YES/NO row own the flow then), so
+        // the button offers nothing - no collect state. After a lost round the
+        // dialog stays up but the button is enabled again to settle it. Runs
+        // locally on each client; the synced ownerId drives it.
         public void _RefreshStartInteractable()
         {
             int ownerId = syncedDealerId;
@@ -2560,7 +2834,7 @@ namespace org.kumagee
             bool localOwner = false;
             VRCPlayerApi local = Networking.LocalPlayer;
             if (Utilities.IsValid(local)) localOwner = ownerId == local.playerId;
-            if (StartButtonInteract != null) StartButtonInteract.enabled = !running || localOwner;
+            if (StartButtonInteract != null) StartButtonInteract.enabled = !_IsHiLoRunning() && (!running || localOwner);
             RefreshStartLabel();
             _RefreshUndoInteractable();
 
@@ -2703,6 +2977,23 @@ namespace org.kumagee
         public void _ResetGame()
         {
             if (resolvedDeck == null || cards == null) return;
+
+            // A higher-or-lower pot still at stake - or a win whose offer was
+            // never answered - is settled as a cash-out here rather than dropped:
+            // _ResetGame can be reached with the dialog still up when the player
+            // deals at another table (ClearFinishedGames). CreditPayout only pays
+            // the uncredited remainder, so an already-settled win is a no-op.
+            if (hiLoGame || (won && hiLoOfferPending))
+            {
+                hiLoGame = false;
+                hiLoStake = 0f;
+                CreditPayout();
+            }
+            hiLoOfferPending = false;
+            hiLoContinuePending = false;
+            hiLoAwaitingPick = false;
+            _SetHiLoContinueVisible(false);
+            _RefreshHiLoInteracts();
 
             // Tell the rest of the instance the table is free again before the
             // cards go back; the dealer owns the table at this point, so the write
@@ -3250,12 +3541,7 @@ namespace org.kumagee
 
             if (gameStarted)
             {
-                if (doubleOrNothingGame)
-                {
-                    if (winMessageText != null) winMessageText.SetPrefixKeyAndSuffix("", "DOUBLE_OR_NOTHING_SHORT", " " + BuildDoubleStakeAmount() + "c");
-                    WinMessage.SetActive(true);
-                }
-                else if (payoutEarned > 0f)
+                if (payoutEarned > 0f)
                 {
                     if (winMessageText != null) winMessageText.SetPrefixKeyAndSuffix("", "PAYOUT", " " + BuildPayoutAmount() + "c");
                     WinMessage.SetActive(true);
@@ -3288,14 +3574,14 @@ namespace org.kumagee
             return $"{EntryFee}";
         }
 
-        private string BuildDoubleStakeAmount()
+        private string BuildHiLoStakeAmount()
         {
-            if (Mathf.Approximately(doubleStake, Mathf.Floor(doubleStake)))
+            if (Mathf.Approximately(hiLoStake, Mathf.Floor(hiLoStake)))
             {
-                int stake = (int)doubleStake;
+                int stake = (int)hiLoStake;
                 return $"{stake}";
             }
-            return $"{doubleStake}";
+            return $"{hiLoStake}";
         }
 
         // ---- Records
@@ -3428,29 +3714,21 @@ namespace org.kumagee
             won = true;
             int streak = RecordGameWon();
             if (CardAudio != null) CardAudio.PlayNetworkedIndex(WinClipIndex, transform.position);
-            // Double-or-nothing is a pure bet: the win pays exactly twice the staked
-            // amount, with no streak multiplier and no foundation accrual folded in.
-            if (doubleOrNothingGame)
-            {
-                payoutEarned = 2f * doubleStake;
-            }
-            else
-            {
-                // The streak bonus rides on top of the base win multiplier rather than
-                // replacing it. A base of zero (or less) means "no bonus" and reads as
-                // 1x, so it never cancels the payout; the streak step is then added.
-                float multiplier = CompletePayoutMultiplier > 0f ? CompletePayoutMultiplier : 1f;
-                multiplier += _StreakWinMultiplier(streak);
-                payoutEarned *= multiplier;
-            }
+            // The streak bonus rides on top of the base win multiplier rather than
+            // replacing it. A base of zero (or less) means "no bonus" and reads as
+            // 1x, so it never cancels the payout; the streak step is then added.
+            float multiplier = CompletePayoutMultiplier > 0f ? CompletePayoutMultiplier : 1f;
+            multiplier += _StreakWinMultiplier(streak);
+            payoutEarned *= multiplier;
             if (resolvedDeck != null) resolvedDeck._SetGameWon(true);
 
-            // No double-or-nothing UI means the old immediate payout: credit now and
-            // let the win banner report it. Otherwise defer the credit and offer the
-            // choice - collect, or stake the lot on another game.
+            // No higher-or-lower UI means the old immediate payout: credit now and
+            // let the win banner report it. Otherwise defer the credit and ask on
+            // the confirmation canvas whether to stake the win on higher-or-lower;
+            // the dialog only opens once that offer is confirmed.
             if (DoubleOrNothingDialog != null)
             {
-                ShowDoubleOrNothing();
+                _OfferHiLo();
             }
             else
             {
@@ -3460,59 +3738,280 @@ namespace org.kumagee
             _RefreshStartInteractable();
         }
 
-        // Puts the amount on offer on the double-or-nothing dialog and shows it in
-        // place of the win banner, so the decision owns the screen until made.
-        private void ShowDoubleOrNothing()
+        // Puts the higher-or-lower offer on the confirmation canvas without
+        // starting anything: nothing is staked and the dialog stays closed until
+        // the offer is confirmed (_ConfirmNewGame -> ShowHiLo). Declining - via
+        // cancel or the start button - pays a post-win game out straight away.
+        // Without a confirm canvas wired there is nothing to ask on, so the
+        // dialog opens directly.
+        private void _OfferHiLo()
         {
-            if (DoubleOrNothingAmountLabel != null)
+            if (ConfirmDialog == null)
             {
-                DoubleOrNothingAmountLabel.SetPrefixKeyAndSuffix("", "DOUBLE_OR_NOTHING", " " + BuildPayoutAmount() + "c");
+                ShowHiLo();
+                return;
             }
+            hiLoOfferPending = true;
+            if (ConfirmDialogLabel != null) ConfirmDialogLabel.SetPrefixKeyAndSuffix("", "HI_LO_CONFIRM", " " + BuildPayoutAmount() + "c");
+            ConfirmDialog.SetActive(true);
+            RefreshWinMessage();
+            RefreshStartLabel();
+        }
+
+        // Puts the continue-or-collect question inside the hi-lo canvas, below the
+        // cards (HI_LO_CONTINUE label + YES/NO row), after a round resolved in the
+        // player's favor (won or tied) - never after a lost one, which leaves the
+        // dialog up with the start/quit button as the way out. Nothing is dealt
+        // until the player answers, so the next pair - not even its open card -
+        // stays hidden. YES goes to _ConfirmNewGame -> _DealHiLoRound, NO to
+        // _CancelNewGame -> _OnHiLoCollect (cash out). Without the in-canvas row,
+        // falls back to the confirmation canvas; without that either, the next
+        // round is dealt after HiLoRoundDelay as before.
+        private void _OfferHiLoContinue()
+        {
+            if (hiLoContinueRow != null || hiLoContinueLabel != null)
+            {
+                hiLoContinuePending = true;
+                if (hiLoContinueLabel != null) hiLoContinueLabel.SetKey("HI_LO_CONTINUE");
+                _SetHiLoContinueVisible(true);
+                RefreshStartLabel();
+                return;
+            }
+            if (ConfirmDialog == null)
+            {
+                // Nothing to ask on. An empty pot has nothing to continue with,
+                // so close the dialog on its own after a moment instead of
+                // dealing a free round.
+                if (hiLoStake <= 0f) SendCustomEventDelayedSeconds(nameof(_OnHiLoCollect), HiLoRoundDelay);
+                else SendCustomEventDelayedSeconds(nameof(_DealHiLoRound), HiLoRoundDelay);
+                return;
+            }
+            hiLoContinuePending = true;
+            if (ConfirmDialogLabel != null) ConfirmDialogLabel.SetPrefixKeyAndSuffix("", "HI_LO_CONTINUE", " " + BuildHiLoStakeAmount() + "c");
+            ConfirmDialog.SetActive(true);
+            RefreshStartLabel();
+        }
+
+        // Starts the higher-or-lower game and shows the dialog: the pot is the
+        // amount on offer and a first pair of cards is dealt in - one open, one
+        // face down. The player picks the higher one by interacting with it;
+        // cashing out goes through the dialog's own YES/NO row, so the start
+        // button is disabled for as long as the dialog is up.
+        private void ShowHiLo()
+        {
+            hiLoOfferPending = false;
+            hiLoGame = true;
+            hiLoStake = payoutEarned;
+            hiLoCarryOver = false;
             if (DoubleOrNothingDialog != null) DoubleOrNothingDialog.SetActive(true);
             if (WinMessage != null) WinMessage.SetActive(false);
+            _RefreshStartInteractable();
+            _DealHiLoRound();
         }
 
-        // Collect the current winnings and finish the game, paying out whatever
-        // payoutEarned still has that the wallet has not received. In a normal win
-        // that is the win bonus; in a double-or-nothing win it is the whole pot.
-        public void _OnDoubleOrNothingCollect()
+        // Deals the next pair of hi-lo cards and arms the pick interacts. The card
+        // objects stay on their fixed anchors every round (each card is parented to
+        // its anchor, so the glide lands it exactly there): A is always the open
+        // card, B the face-down one. The opening round is fully random; from the
+        // second round on, the previous round's face-down card - revealed by the
+        // pick - is carried over as the new open card's identity, and B gets a
+        // fresh random one. Runs for the opening round and for every re-deal after
+        // the player confirms continue on a won or tied round.
+        private void _DealHiLoRound()
         {
-            if (!_IsLocalGameOwner()) return;
-            if (DoubleOrNothingDialog != null) DoubleOrNothingDialog.SetActive(false);
-            CreditPayout();
-            doubleStake = 0f;
-            doubleOrNothingGame = false;
-            RefreshWinMessage();
-        }
+            if (!hiLoGame) return;
+            if (DoubleOrNothingDialog != null && !DoubleOrNothingDialog.activeSelf) return;
+            hiLoContinuePending = false;
+            _SetHiLoContinueVisible(false);
 
-        // Stake the winnings on another game. Any part already credited into the
-        // wallet is clawed back so the full amount is at risk, then a fresh game is
-        // dealt in double-or-nothing mode.
-        public void _OnDoubleOrNothingDouble()
-        {
-            if (!_IsLocalGameOwner()) return;
-
-            // Re-staking claws the already-credited foundation payout back out of the
-            // wallet. If the player spent that part on another game while the dialog
-            // was up, the wallet no longer covers the claw-back, so refuse the double
-            // and collect what is left instead.
-            if (UdonChips != null && UdonChips.money < payoutCredited)
+            if (hiLoCarryOver)
             {
-                ShowNotificationSuffix("NOTIFY_NOT_ENOUGH_CHIPS", BuildPayoutAmount() + "c.");
-                _OnDoubleOrNothingCollect();
+                // The previous round's face-down card (just revealed) becomes the
+                // new open card.
+                hiLoRankA = hiLoRankB;
+                hiLoSuitA = hiLoSuitB;
+            }
+            else
+            {
+                hiLoRankA = Random.Range(1, CardLogic.RankDefinitionsCount + 1);
+                hiLoSuitA = Random.Range(0, 4);
+            }
+            hiLoRankB = Random.Range(1, CardLogic.RankDefinitionsCount + 1);
+            hiLoSuitB = Random.Range(0, 4);
+            hiLoCarryOver = true;
+
+            _PlaceHiLoCard(hiLoCardA, hiLoAnchorA, hiLoRankA, hiLoSuitA, true);
+            _PlaceHiLoCard(hiLoCardB, hiLoAnchorB, hiLoRankB, hiLoSuitB, false);
+
+            hiLoAwaitingPick = true;
+            _RefreshHiLoInteracts();
+            if (hiLoQuestionLabel != null) hiLoQuestionLabel.SetKey("HI_LO_PICK");
+        }
+
+        // Sets one hi-lo card's identity and face, then slides it from the deck to
+        // its anchor. The card is not part of the board (its Solitaire is null), so
+        // identity and face go straight through SetCardIdentity/_ApplyState rather
+        // than the board write path.
+        private void _PlaceHiLoCard(CardLogic card, Transform anchor, int rank, int suit, bool faceUp)
+        {
+            if (card == null || anchor == null) return;
+
+            if (resolvedDeck != null) resolvedDeck._ApplyCardBackTo(card);
+            card.SetCardIdentity((Rank)rank, (Suit)suit);
+            card._ApplyState(-1, faceUp, faceUp);
+            card.ApplyFaceTexture();
+
+            Transform mover = card.CardRoot != null ? card.CardRoot : card.transform;
+            mover.rotation = anchor.rotation;
+            // Launch from the deck so the card travels in. The glide runs in the
+            // anchor's local space - the dialog billboards to face the player, so
+            // a world-space target would go stale mid-glide - and lands the card
+            // glued to its anchor. Without a deck (hi-lo only ever follows a dealt
+            // game, so this is just a guard) the card appears directly at its anchor.
+            Vector3 from = cardHome != null ? cardHome.position : anchor.position;
+            card._SlideToAnchorLocal(anchor, from, HiLoSlideDuration);
+        }
+
+        // Arms or disarms the two pick interacts and sets their hover prompt. The
+        // undo button follows the same state, so it hides while a hi-lo game (or a
+        // pending hi-lo question) is up.
+        private void _RefreshHiLoInteracts()
+        {
+            bool visible = hiLoGame && hiLoAwaitingPick;
+            if (hiLoInteractA != null)
+            {
+                hiLoInteractA._SetVisible(visible);
+                if (visible) hiLoInteractA._SetInteractionText(_Text("HI_LO_PICK"));
+            }
+            if (hiLoInteractB != null)
+            {
+                hiLoInteractB._SetVisible(visible);
+                if (visible) hiLoInteractB._SetInteractionText(_Text("HI_LO_PICK"));
+            }
+            _RefreshUndoInteractable();
+        }
+
+        // Test hook: puts the running game into the same state a completely
+        // finished (won) game is in - won flag, deck flagged won - and then
+        // offers the higher-or-lower game, so the whole post-win flow (offer on
+        // the confirm canvas, dialog rounds, lost-round handling, cash-out
+        // resetting the table) can be tested without playing a game out. The
+        // games/wins records are deliberately left alone - only the
+        // streak-pending marker is cleared, as a real win would - and the pot
+        // is the payout accrued so far, or DebugHiLoStake when nothing has
+        // been earned yet. Only the game owner may trigger it, and only while
+        // no offer or dialog is already up. Assign DebugHiLoInteract (or wire
+        // any interact to this event) to try the flow.
+        public void _DebugTriggerHiLo()
+        {
+            if (DoubleOrNothingDialog == null) return;
+            if (!_IsLocalGameOwner()) return;
+            if (!gameStarted || dealing || won || hiLoGame || hiLoOfferPending) return;
+            won = true;
+            SetStreakPending(false);
+            if (resolvedDeck != null) resolvedDeck._SetGameWon(true);
+            if (payoutEarned <= 0f) payoutEarned = DebugHiLoStake;
+            _OfferHiLo();
+        }
+
+        // Settles the hi-lo game: credit the pot as it stands and close the
+        // dialog, without touching the underlying game - quitting is the
+        // start/quit button's job (QUIT, no confirm on a won game), exactly
+        // as after a lost round. Reached from the hi-lo dialog's NO button
+        // (declining continue), from the claw-back refusal in _HiLoPick, and
+        // from the start/quit button after a lost round. Mid-game (debug
+        // trigger) the game just continues and the start button comes back
+        // as QUIT.
+        public void _OnHiLoCollect()
+        {
+            if (!_IsLocalGameOwner()) return;
+            if (!hiLoGame) return;
+            if (DoubleOrNothingDialog != null) DoubleOrNothingDialog.SetActive(false);
+            if (ConfirmDialog != null) ConfirmDialog.SetActive(false);
+            hiLoGame = false;
+            hiLoContinuePending = false;
+            hiLoAwaitingPick = false;
+            _SetHiLoContinueVisible(false);
+            _RefreshHiLoInteracts();
+            hiLoStake = 0f;
+            CreditPayout();
+            RefreshWinMessage();
+            _RefreshStartInteractable();
+        }
+
+        public void _OnHiLoPickA() { _HiLoPick(0); }
+        public void _OnHiLoPickB() { _HiLoPick(1); }
+
+        // Settles a pick: picked 0 is the open card A, picked 1 is the face-down
+        // card B. The face-down card is revealed either way, then the two ranks
+        // are compared: a higher pick doubles the pot, a tie leaves it standing -
+        // both then ask continue-or-collect before the next pair is dealt, so the
+        // next cards stay hidden until the player commits - while a lower pick
+        // forfeits the pot and leaves the dialog up with both cards revealed and
+        // no row; the round counts as finished and the start/quit button is the
+        // way out.
+        private void _HiLoPick(int picked)
+        {
+            if (!_IsLocalGameOwner()) return;
+            if (!hiLoGame || !hiLoAwaitingPick) return;
+            if (DoubleOrNothingDialog != null && !DoubleOrNothingDialog.activeSelf) return;
+
+            hiLoAwaitingPick = false;
+            _RefreshHiLoInteracts();
+
+            // The first pick puts the whole pot at risk: claw the already-credited
+            // part back out of the wallet. If the player spent that part elsewhere
+            // while the dialog was up, the wallet no longer covers the claw-back,
+            // so refuse the pick and collect what is left instead.
+            if (payoutCredited > 0f)
+            {
+                if (UdonChips == null || UdonChips.money < payoutCredited)
+                {
+                    ShowNotificationSuffix("NOTIFY_NOT_ENOUGH_CHIPS", BuildPayoutAmount() + "c.");
+                    _OnHiLoCollect();
+                    return;
+                }
+                UdonChips.money -= payoutCredited;
+                payoutCredited = 0f;
+            }
+
+            // Reveal the face-down card either way - the result has to be visible.
+            if (hiLoCardB != null)
+            {
+                hiLoCardB._ApplyState(-1, true, true);
+                hiLoCardB.ApplyFaceTexture();
+            }
+
+            int pickedRank = picked == 0 ? hiLoRankA : hiLoRankB;
+            int otherRank = picked == 0 ? hiLoRankB : hiLoRankA;
+
+            if (pickedRank == otherRank)
+            {
+                if (hiLoQuestionLabel != null) hiLoQuestionLabel.SetKey("HI_LO_TIE");
+                _OfferHiLoContinue();
                 return;
             }
 
-            if (DoubleOrNothingDialog != null) DoubleOrNothingDialog.SetActive(false);
+            if (pickedRank > otherRank)
+            {
+                hiLoStake *= 2f;
+                payoutEarned = hiLoStake;
+                if (hiLoQuestionLabel != null) hiLoQuestionLabel.SetKey("HI_LO_WIN");
+                _OfferHiLoContinue();
+                return;
+            }
 
-            doubleStake = payoutEarned;
-            if (UdonChips != null && payoutCredited > 0f) UdonChips.money -= payoutCredited;
-            payoutCredited = 0f;
+            // Lost: the pot is forfeited, but the dialog stays up (hiLoGame stays
+            // true) with both cards revealed and the label saying so, so the
+            // player can see why they lost. No row is shown and the round counts
+            // as finished (see _IsHiLoRunning), so the start/quit button comes
+            // back; one press settles the empty pot via _OnHiLoCollect and, the
+            // game being won, resets the table.
+            hiLoStake = 0f;
             payoutEarned = 0f;
-
-            _ResetGame();
-            doubleOrNothingGame = true;
-            Deal(Networking.LocalPlayer);
+            if (hiLoQuestionLabel != null) hiLoQuestionLabel.SetKey("HI_LO_LOSE");
+            CreditPayout();
+            _RefreshStartInteractable();
         }
     }
 }

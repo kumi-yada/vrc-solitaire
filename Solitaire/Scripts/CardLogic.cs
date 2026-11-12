@@ -126,6 +126,10 @@ namespace org.kumagee
         // it from the board. Only position eases - rotation is already the slot's the
         // whole way, so a card never spins as it travels.
         private bool sliding;
+        // True when the glide runs in a parent transform's local space instead of
+        // world space (the higher-or-lower dialog's cards hang off anchors that
+        // move with the dialog's billboard, so a world-space target goes stale).
+        private bool slideLocal;
         private Vector3 slideFrom;
         private Vector3 slideTo;
         private float slideStart;
@@ -547,6 +551,27 @@ namespace org.kumagee
             slideTo = to;
             slideStart = Time.time;
             slideDuration = duration > 0f ? duration : 0.001f;
+            slideLocal = false;
+            sliding = true;
+        }
+
+        // Slide within an anchor's local space - used by the higher-or-lower
+        // dialog, whose cards are not linked into the board and whose anchor moves
+        // with the dialog's billboard. The card starts at fromWorld and eases to
+        // the anchor's origin (localPosition zero), so it lands glued to the anchor
+        // no matter how the dialog turns. Like the slot glide this is purely visual
+        // and local, and rotation stays put the whole way.
+        public void _SlideToAnchorLocal(Transform anchor, Vector3 fromWorld, float duration)
+        {
+            if (!initialized) Init();
+            Transform mover = CardRoot;
+            if (mover == null) mover = transform;
+            mover.position = fromWorld;
+            slideFrom = anchor.InverseTransformPoint(fromWorld);
+            slideTo = Vector3.zero;
+            slideStart = Time.time;
+            slideDuration = duration > 0f ? duration : 0.001f;
+            slideLocal = true;
             sliding = true;
         }
 
@@ -559,10 +584,20 @@ namespace org.kumagee
             if (t >= 1f)
             {
                 sliding = false;
-                // Snap to the exact resting pose so the parent and offset agree with
-                // the board; the eased position is already there, so this is a no-op
-                // visually.
-                _ApplyPlacement();
+                if (slideLocal)
+                {
+                    // Land exactly on the anchor, in the anchor's own space.
+                    Transform rest = CardRoot;
+                    if (rest == null) rest = transform;
+                    rest.localPosition = slideTo;
+                }
+                else
+                {
+                    // Snap to the exact resting pose so the parent and offset agree with
+                    // the board; the eased position is already there, so this is a no-op
+                    // visually.
+                    _ApplyPlacement();
+                }
                 return;
             }
 
@@ -570,7 +605,8 @@ namespace org.kumagee
 
             Transform mover = CardRoot;
             if (mover == null) mover = transform;
-            mover.position = Vector3.Lerp(slideFrom, slideTo, e);
+            if (slideLocal) mover.localPosition = Vector3.Lerp(slideFrom, slideTo, e);
+            else mover.position = Vector3.Lerp(slideFrom, slideTo, e);
         }
 
         // Unlink and send the card back to its pool parent.

@@ -63,10 +63,12 @@ namespace org.kumagee
         public bool GameWon => gameWon;
 
         // True while this deck is the one a running game is dealt from. A won game
-        // no longer counts as active: the payout is already credited and the player
-        // should be free to start a new game at another table without having to quit
-        // this one first. gameOwnerId is synced; gameWon is local-only because
-        // FindActiveDeckFor only ever inspects the local player's own decks.
+        // no longer counts as active: the player should be free to start a new game
+        // at another table without having to quit this one first - unless a
+        // higher-or-lower game is still running on that table, which
+        // FindActiveDeckFor adds via Solitaire._IsHiLoActive. gameOwnerId is
+        // synced; gameWon is local-only because FindActiveDeckFor only ever
+        // inspects the local player's own decks.
         public bool InActiveGame => gameOwnerId != -1 && !gameWon;
 
         public void _SetGameOwner(int playerId)
@@ -124,28 +126,34 @@ namespace org.kumagee
             _ApplyDeckBack();
 
             if (cards == null) return;
-            CardBack back = (CardBack)syncedCardBack;
-            Texture backTexture = syncedDark && darkBackTexture != null ? darkBackTexture : _defaultBackTexture;
             for (int i = 0; i < cards.Length; i++)
             {
-                if (cards[i] != null)
-                {
-                    if (syncedDark && darkFaceTexture != null)
-                    {
-                        cards[i]._SetFaceTexture(darkFaceTexture);
-                    }
-                    else
-                    {
-                        cards[i]._RestoreFaceTexture();
-                    }
-
-                    if (backTexture != null)
-                    {
-                        cards[i]._SetBackTexture(backTexture);
-                    }
-                    cards[i].SetBackDesign(back);
-                }
+                _ApplyCardBackTo(cards[i]);
             }
+        }
+
+        // Applies this deck's synced back design (and dark-mode face texture) to a
+        // single card. Also used for cards outside the pool, like the
+        // higher-or-lower dialog's, so they match the equipped theme.
+        public void _ApplyCardBackTo(CardLogic card)
+        {
+            if (card == null) return;
+            CardBack back = (CardBack)syncedCardBack;
+            Texture backTexture = syncedDark && darkBackTexture != null ? darkBackTexture : _defaultBackTexture;
+            if (syncedDark && darkFaceTexture != null)
+            {
+                card._SetFaceTexture(darkFaceTexture);
+            }
+            else
+            {
+                card._RestoreFaceTexture();
+            }
+
+            if (backTexture != null)
+            {
+                card._SetBackTexture(backTexture);
+            }
+            card.SetBackDesign(back);
         }
 
         // The deck (stock pile) visual is a separate mesh carrying its own copy of
