@@ -157,6 +157,8 @@ MonoBehaviour:
   - HI_LO_PICK
   - HI_LO_POT
   - HI_LO_CONTINUE
+  - GACHA_PULLS_TODAY
+  - GACHA_LUCK_BONUS
 --- !u!114 &7263494941092799630
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -342,6 +344,8 @@ MonoBehaviour:
   - "\u54EA\u4E00\u5F20\u66F4\u9AD8\uFF1F"
   - "\u5956\u6C60"
   - "\u7EE7\u7EED\u6E38\u620F\u5417\uFF1F"
+  - "\u4ECA\u65E5\u5DF2\u62BD: "
+  - "\u5E78\u8FD0 +"
 --- !u!114 &3449573099265861406
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -546,6 +550,8 @@ MonoBehaviour:
   - Which one is higher?
   - 'Pot:'
   - Continue playing?
+  - 'Pulls today: '
+  - luck +
 --- !u!114 &2650886696041933557
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -731,6 +737,8 @@ MonoBehaviour:
   - "\u3069\u3061\u3089\u304C\u9AD8\u3044\uFF1F"
   - "\u30DD\u30C3\u30C8"
   - "\u7D9A\u3051\u307E\u3059\u304B\uFF1F"
+  - "\u672C\u65E5\u306E\u62BD\u9078: "
+  - "\u904B +"
 --- !u!114 &3838494669122239583
 MonoBehaviour:
   m_ObjectHideFlags: 0
