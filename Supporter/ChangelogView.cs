@@ -1,4 +1,5 @@
-﻿using TMPro;
+﻿using System.Text;
+using TMPro;
 using UdonSharp;
 using UnityEngine;
 using VRC.SDK3.StringLoading;
@@ -6,11 +7,13 @@ using VRC.SDKBase;
 using VRC.Udon.Common.Interfaces;
 
 /// <summary>
-/// Loads the changelog from a GitHub repository raw URL and writes it into a
-/// text field. Supports localized changelogs (e.g. CHANGELOG-ja.md) by mapping
-/// language codes to URLs. Falls back to the default changelogUrl when no
-/// translation exists for the current language or when the localized file
-/// fails to load.
+/// Loads the changelog from a GitHub repository raw URL and shows only the
+/// newest version: its "## " heading exactly as written becomes the panel
+/// title, and its entries are shown in a text field as TMP rich text bullet
+/// points. Supports localized changelogs (e.g. CHANGELOG-ja.md)
+/// by mapping language codes to URLs. Falls back to the default changelogUrl
+/// when no translation exists for the current language or when the localized
+/// file fails to load.
 ///
 /// In the Editor, language entries are auto-generated from the LocalizationManager
 /// tables: set changelogUrl to the default file (e.g. .../CHANGELOG.md) and the
@@ -34,14 +37,11 @@ public class ChangelogView : UdonSharpBehaviour
     public LocalizationManager localization;
 
     [Header("Display")]
-    [Tooltip("Text field the changelog content is written into")]
+    [Tooltip("Text field the newest changelog version's entries are written into, as bullet points")]
     public TextMeshProUGUI changelogText;
 
-    [Tooltip("If set, this text shows the localized changelog title")]
-    public LocalizedText titleText;
-
-    [Tooltip("Localization key for the changelog title")]
-    public string titleMessage = "CHANGELOG";
+    [Tooltip("Title text that shows the newest version heading from the changelog file, exactly as written (e.g. \"2026-10-29 - v1.5 First-time guidance and QoL\")")]
+    public TextMeshProUGUI titleText;
 
     private const int MaxRetries = 3;
     private const float RetryDelaySeconds = 6f; // string downloads are limited to one per 5s
@@ -50,6 +50,7 @@ public class ChangelogView : UdonSharpBehaviour
     private bool _loaded;
     private bool _triedFallback;
     private VRCUrl _currentUrl;
+    private string _latestHeading = "";
 
     public bool IsLoaded()
     {
@@ -103,10 +104,7 @@ public class ChangelogView : UdonSharpBehaviour
         if (localization != null)
             localization.Register(this);
 
-        if (titleText != null)
-        {
-            titleText.SetPrefixKeyAndSuffix("", titleMessage, "");
-        }
+        _UpdateTitle();
         _Reload();
     }
 
@@ -129,11 +127,12 @@ public class ChangelogView : UdonSharpBehaviour
     {
         _retryCount = 0;
         _loaded = true;
+        string formatted = _FormatLatestVersion(result.Result);
         if (changelogText != null)
         {
-            changelogText.text = result.Result;
+            changelogText.text = formatted;
         }
-        Debug.Log("[Changelog] Loaded changelog");
+        Debug.Log($"[Changelog] Loaded changelog (latest: {_latestHeading})");
     }
 
     public override void OnStringLoadError(IVRCStringDownload result)
@@ -159,6 +158,61 @@ public class ChangelogView : UdonSharpBehaviour
         {
             Debug.LogError($"[Changelog] Load failed after {MaxRetries} retries: {result.ErrorCode} {result.Error}");
         }
+    }
+
+    /// <summary>
+    /// Renders only the newest version section of the changelog markdown: the
+    /// first "## " heading is shown verbatim in the panel title and its "- "
+    /// list items become bullet points in the text field. Falls back to the raw
+    /// markdown when no "## " section exists.
+    /// </summary>
+    private string _FormatLatestVersion(string markdown)
+    {
+        if (string.IsNullOrEmpty(markdown)) return markdown;
+
+        string[] lines = markdown.Replace("\r\n", "\n").Split('\n');
+        string heading = null;
+        StringBuilder items = new StringBuilder();
+        bool inLatest = false;
+
+        for (int i = 0; i < lines.Length; i++)
+        {
+            string line = lines[i].Trim();
+            if (line.StartsWith("## "))
+            {
+                if (inLatest) break; // start of the next (older) version
+                inLatest = true;
+                heading = line.Substring(3).Trim();
+                continue;
+            }
+            if (!inLatest || line == "") continue;
+
+            if (items.Length > 0) items.Append("\n");
+            if (line.StartsWith("- "))
+                items.Append("\u2022 ").Append(line.Substring(2));
+            else if (line.StartsWith("-"))
+                items.Append("\u2022 ").Append(line.Substring(1).Trim());
+            else
+                items.Append(line);
+        }
+
+        if (heading == null)
+        {
+            _latestHeading = "";
+            _UpdateTitle();
+            return markdown;
+        }
+
+        _latestHeading = heading;
+        _UpdateTitle();
+
+        return items.ToString();
+    }
+
+    private void _UpdateTitle()
+    {
+        if (titleText == null) return;
+        titleText.text = _latestHeading;
     }
 
 #if !COMPILER_UDONSHARP && UNITY_EDITOR
