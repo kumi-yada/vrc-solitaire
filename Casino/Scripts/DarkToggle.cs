@@ -22,6 +22,9 @@ public class DarkToggle : UdonSharpBehaviour
     [Tooltip("Optional button disabled for non-supporters.")]
     [SerializeField] private Button button;
 
+    [Tooltip("Gacha machine owning the wired CardTheme rows. Dark mode is pushed through it so every row swaps its preview sprite.")]
+    [SerializeField] private Gacha gacha;
+
     [Tooltip("Label color shown when the player is not a supporter.")]
     [SerializeField] private Color grayColor = new Color(0.5f, 0.5f, 0.5f, 1f);
 
@@ -146,29 +149,15 @@ public class DarkToggle : UdonSharpBehaviour
         label.SetPrefixKeyAndSuffixKey("", !_dark ? "DARK_MODE" : "LIGHT_MODE", suffixKey);
     }
 
-    // Card themes may sit anywhere under the shared shop root, so search the whole
-    // subtree. Swapping the preview sprite is local-only, so only this player's
-    // view changes.
+    // The CardTheme rows are wired to the Gacha next to this toggle, so push the
+    // flag through it rather than searching the hierarchy (the button may sit in
+    // a nested container). Swapping the preview sprite is local-only, so only
+    // this player's view changes.
     private void _ApplyThemes()
     {
-        Transform parent = transform.parent;
-        if (parent == null)
+        if (gacha != null)
         {
-            return;
-        }
-
-        CardTheme[] themes = parent.GetComponentsInChildren<CardTheme>(true);
-        if (themes == null)
-        {
-            return;
-        }
-
-        for (int i = 0; i < themes.Length; i++)
-        {
-            if (themes[i] != null)
-            {
-                themes[i]._SetDark(_dark);
-            }
+            gacha._BroadcastDark(_dark);
         }
     }
 

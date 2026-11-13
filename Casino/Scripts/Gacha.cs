@@ -31,18 +31,22 @@ public class Gacha : UdonSharpBehaviour
     // Cap the doubling so a large base price cannot overflow int.
     private const int MaxPriceShift = 18;
     // Each pull made today shifts 1% of pull chance from Common to the higher
-    // rarities (Rare and Legendary).
-    private const int DailyLuckBonus = 1;
+    // rarities (Rare and Legendary). Weights are in per-mille, so 1% is 10.
+    private const int DailyLuckBonus = 10;
 
-    // Pull chance per rarity, in percent, before the daily luck bonus. A pull
-    // rolls a rarity first, then a random card back of that rarity.
-    private const int CommonWeight = 80;
-    private const int RareWeight = 15;
-    private const int LegendaryWeight = 5;
+    // Pull chance per rarity, in per-mille (1/1000), before the daily luck
+    // bonus. A pull rolls a rarity first, then a random card back of that
+    // rarity. Per-mille lets Legendary sit at 0.1%, which whole percents
+    // cannot express.
+    private const int CommonWeight = 900;
+    private const int RareWeight = 99;
+    private const int LegendaryWeight = 1;
 
     [Tooltip("Chips wallet used to pay for gacha pulls.")]
     [SerializeField] private UdonChips udonChips;
     [SerializeField] private Notification notification;
+    [Tooltip("Clip played with the pull-result notification instead of the Notification's default clip.")]
+    [SerializeField] private AudioClip gachaPullClip;
     [SerializeField] private LocalizationManager localization;
     [SerializeField] private LocalizedText gachaStatusLabel;
     [Tooltip("Every CardTheme prefab instance in the shop canvas.")]
@@ -121,10 +125,10 @@ public class Gacha : UdonSharpBehaviour
 
     // One gacha pull: pay the current daily price, roll a rarity by its
     // weight (plus today's luck bonus), then a random back of that rarity
-    // from the whole non-White pool, then unlock it or report a duplicate.
-    // Every pull also counts toward today's escalating price and luck.
-    // Everything is per-player PlayerData, so the rolling client is the only
-    // one that needs to agree with itself.
+    // from the whole non-White pool, unlock it if new, and notify the pulled
+    // back's name either way. Every pull also counts toward today's
+    // escalating price and luck. Everything is per-player PlayerData, so the
+    // rolling client is the only one that needs to agree with itself.
     private void _Pull()
     {
         int price = _CurrentPrice();
@@ -141,17 +145,12 @@ public class Gacha : UdonSharpBehaviour
         PlayerData.SetInt(PullsKey, _pullsToday);
 
         int mask = 1 << back;
-        if ((_unlockedFlags & mask) != 0)
-        {
-            _Notify(_Text("GACHA_DUPLICATE") + _BackName(back));
-        }
-        else
+        if ((_unlockedFlags & mask) == 0)
         {
             _unlockedFlags |= mask;
             PlayerData.SetInt(CardTheme.UnlockedKey, _unlockedFlags);
-            _Notify(_Text("GACHA_NEW") + _BackName(back));
-            if (_AllUnlocked()) _Notify(_Text("GACHA_COMPLETE"));
         }
+        _Notify(_BackName(back), gachaPullClip);
 
         _RefreshLabels();
         _BroadcastRefresh();
@@ -180,12 +179,12 @@ public class Gacha : UdonSharpBehaviour
         }
 
         // The bonus moves chance from Common to Rare and Legendary, split by
-        // their base weights; the total stays 100. Legendary gets the rest.
+        // their base weights; the total stays 1000. Legendary gets the rest.
         int bonus = _LuckBonus();
         int commonWeight = CommonWeight - bonus;
         int rareWeight = RareWeight + bonus * RareWeight / (RareWeight + LegendaryWeight);
 
-        int roll = Random.Range(0, 100);
+        int roll = Random.Range(0, 1000);
         Rarity target;
         if (roll < commonWeight) target = Rarity.Common;
         else if (roll < commonWeight + rareWeight) target = Rarity.Rare;
@@ -221,13 +220,6 @@ public class Gacha : UdonSharpBehaviour
         return (int)CardBack.Blue;
     }
 
-    private bool _AllUnlocked()
-    {
-        // Every back except the free default White.
-        const int gachaMask = (1 << (int)CardBack.White) - 1;
-        return (_unlockedFlags & gachaMask) == gachaMask;
-    }
-
     private string _BackName(int back)
     {
         switch (back)
@@ -250,7 +242,13 @@ public class Gacha : UdonSharpBehaviour
 
     private void _Notify(string message)
     {
-        if (notification != null) notification.Notify(message);
+        _Notify(message, null);
+    }
+
+    // A null clip makes the Notification fall back to its default sound.
+    private void _Notify(string message, AudioClip clip)
+    {
+        if (notification != null) notification.Notify(message, clip);
     }
 
     // The gacha button's own label shows the price of the next pull; the
@@ -273,11 +271,12 @@ public class Gacha : UdonSharpBehaviour
             return;
         }
 
-        gachaStatusLabel.SetPrefixKeyAndSuffix(_Text("GACHA_PULLS_TODAY") + _pullsToday + " (", "GACHA_LUCK_BONUS", _LuckBonus() + "%)");
+        gachaStatusLabel.SetPrefixKeyAndSuffix(_Text("GACHA_PULLS_TODAY") + _pullsToday + " (", "GACHA_LUCK_BONUS", (_LuckBonus() / 10) + "%)");
     }
 
-    // Effective higher-rarity (Rare and Legendary) luck bonus in percent for
-    // the pulls made today: +1% per pull, capped so Common never goes below 0%.
+    // Effective higher-rarity (Rare and Legendary) luck bonus in per-mille for
+    // the pulls made today: +1% (10) per pull, capped so Common never goes
+    // below 0%.
     private int _LuckBonus()
     {
         int bonus = _pullsToday * DailyLuckBonus;
@@ -365,6 +364,24 @@ public class Gacha : UdonSharpBehaviour
             if (themes[i] != null)
             {
                 themes[i]._Refresh();
+            }
+        }
+    }
+
+    // Dark mode reported by the DarkToggle: swap every row's preview sprite
+    // between the default and the dark variant.
+    public void _BroadcastDark(bool dark)
+    {
+        CardTheme[] themes = _Themes();
+        if (themes == null)
+        {
+            return;
+        }
+        for (int i = 0; i < themes.Length; i++)
+        {
+            if (themes[i] != null)
+            {
+                themes[i]._SetDark(dark);
             }
         }
     }

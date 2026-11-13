@@ -90,7 +90,7 @@ MonoBehaviour:
   cardBack: 0
   imageButton: {fileID: 5555000111222333}
   previewImage: {fileID: 2797979352425863877}
-  darkSprite: {fileID: 0}
+  darkSprite: {fileID: 21300000, guid: ede740fc956d9e83ea2947cb75efaaa7, type: 3}
   gacha: {fileID: 0}
 --- !u!114 &4713075746357052452
 MonoBehaviour:

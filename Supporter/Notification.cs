@@ -45,8 +45,17 @@ public class Notification : UdonSharpBehaviour
 
     public void Notify(string message)
     {
+        Notify(message, null);
+    }
+
+    // Same as Notify, but plays the given clip instead of the default
+    // notificationClip. A null clip falls back to notificationClip.
+    public void Notify(string message, AudioClip clip)
+    {
         if (display == null || canvasGroup == null || messageText == null) return;
         if (message == _currentMessage) return;
+
+        if (clip == null) clip = notificationClip;
 
         _currentMessage = message;
         messageText.text = message;
@@ -54,8 +63,8 @@ public class Notification : UdonSharpBehaviour
         canvasGroup.alpha = 0f;
         _state = StateFadingIn;
 
-        if (audioPool != null && notificationClip != null)
-            audioPool.PlayLocal(notificationClip, transform.position);
+        if (audioPool != null && clip != null)
+            audioPool.PlayLocal(clip, transform.position);
 
         SendCustomEventDelayedSeconds(nameof(FadeInStep), _fadeInStepDelay);
     }

@@ -26678,6 +26678,7 @@ MonoBehaviour:
   label: {fileID: 885137391}
   supporters: {fileID: 1548720592}
   button: {fileID: 1276484365}
+  gacha: {fileID: 3800000000000000008}
   grayColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
 --- !u!1 &887408144 stripped
 GameObject:
@@ -48805,6 +48806,12 @@ GameObject:
     type: 3}
   m_PrefabInstance: {fileID: 1646112102}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1725988816 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 7009579705545169433, guid: c5812d88bd93bd7a3895cc547b8fc8d7,
+    type: 3}
+  m_PrefabInstance: {fileID: 3800000000000000001}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1726564895 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 3090317570818604631, guid: 1b46aa654fe6f544d88760db32b1dd44,
@@ -57538,6 +57545,7 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 3800000000000000007}
   udonChips: {fileID: 66551317}
   notification: {fileID: 933217154}
+  gachaPullClip: {fileID: 8300000, guid: 787aa84b36db03b729041b7da8f72722, type: 3}
   localization: {fileID: 356741924}
   gachaStatusLabel: {fileID: 941896527}
   cardThemeObjects:
@@ -61940,34 +61948,6 @@ MonoBehaviour:
     ID: 940
     SerializedTypeNames:
     - VRC.Udon.UdonBehaviour
-  - gameObject: {fileID: 0}
-    ID: 705
-    SerializedTypeNames:
-    - VRC.Udon.UdonBehaviour
-  - gameObject: {fileID: 0}
-    ID: 706
-    SerializedTypeNames:
-    - VRC.Udon.UdonBehaviour
-  - gameObject: {fileID: 0}
-    ID: 707
-    SerializedTypeNames:
-    - VRC.Udon.UdonBehaviour
-  - gameObject: {fileID: 0}
-    ID: 708
-    SerializedTypeNames:
-    - VRC.Udon.UdonBehaviour
-  - gameObject: {fileID: 0}
-    ID: 709
-    SerializedTypeNames:
-    - VRC.Udon.UdonBehaviour
-  - gameObject: {fileID: 0}
-    ID: 710
-    SerializedTypeNames:
-    - VRC.Udon.UdonBehaviour
-  - gameObject: {fileID: 0}
-    ID: 711
-    SerializedTypeNames:
-    - VRC.Udon.UdonBehaviour
   - gameObject: {fileID: 1803600929}
     ID: 941
     SerializedTypeNames:
@@ -62495,6 +62475,18 @@ MonoBehaviour:
     - VRC.Udon.UdonBehaviour
   - gameObject: {fileID: 1943169664}
     ID: 1058
+    SerializedTypeNames:
+    - VRC.Udon.UdonBehaviour
+  - gameObject: {fileID: 3800000000000000006}
+    ID: 1059
+    SerializedTypeNames:
+    - VRC.Udon.UdonBehaviour
+  - gameObject: {fileID: 1725988816}
+    ID: 1060
+    SerializedTypeNames:
+    - VRC.Udon.UdonBehaviour
+  - gameObject: {fileID: 941896524}
+    ID: 1061
     SerializedTypeNames:
     - VRC.Udon.UdonBehaviour
   portraitCameraPositionOffset: {x: 0, y: 0, z: 0}
