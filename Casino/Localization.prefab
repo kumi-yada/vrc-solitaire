@@ -159,6 +159,12 @@ MonoBehaviour:
   - HI_LO_CONTINUE
   - GACHA_PULLS_TODAY
   - GACHA_LUCK_BONUS
+  - RARITY_COMMON
+  - RARITY_RARE
+  - RARITY_LEGENDARY
+  - BACK_SAKURA
+  - RARITY_UNCOMMON
+  - RARITY_EPIC
 --- !u!114 &7263494941092799630
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -346,6 +352,12 @@ MonoBehaviour:
   - "\u7EE7\u7EED\u6E38\u620F\u5417\uFF1F"
   - "\u4ECA\u65E5\u5DF2\u62BD: "
   - "\u5E78\u8FD0 +"
+  - "\u666E\u901A"
+  - "\u7A00\u6709"
+  - "\u4F20\u8BF4"
+  - "\u6A31\u82B1"
+  - "\u7F55\u89C1"
+  - "\u53F2\u8BD7"
 --- !u!114 &3449573099265861406
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -552,6 +564,12 @@ MonoBehaviour:
   - Continue playing?
   - 'Pulls today: '
   - luck +
+  - Common
+  - Rare
+  - Legendary
+  - Sakura
+  - Uncommon
+  - Epic
 --- !u!114 &2650886696041933557
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -739,6 +757,12 @@ MonoBehaviour:
   - "\u7D9A\u3051\u307E\u3059\u304B\uFF1F"
   - "\u672C\u65E5\u306E\u62BD\u9078: "
   - "\u904B +"
+  - "\u30B3\u30E2\u30F3"
+  - "\u30EC\u30A2"
+  - "\u30EC\u30B8\u30A7\u30F3\u30C0\u30EA\u30FC"
+  - "\u30B5\u30AF\u30E9"
+  - "\u30A2\u30F3\u30B3\u30E2\u30F3"
+  - "\u30A8\u30D4\u30C3\u30AF"
 --- !u!114 &3838494669122239583
 MonoBehaviour:
   m_ObjectHideFlags: 0

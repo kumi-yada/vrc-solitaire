@@ -20,6 +20,9 @@ public class CardTheme : UdonSharpBehaviour
     [Tooltip("Card back design this row shows. Locked rows render as a black silhouette and cannot be equipped.")]
     [SerializeField] private CardBack cardBack;
 
+    [Tooltip("Rarity of this card back. Drives its gacha pull chance; read by Gacha when it builds the pull pool.")]
+    public Rarity rarity = Rarity.Common;
+
     [Tooltip("Button on the preview image. Clicking the image equips this card back when unlocked.")]
     [SerializeField] private Button imageButton;
 

@@ -42,6 +42,7 @@ namespace org.kumagee
         Green,
         Dual,
         White,
+        Sakura,
     }
 
     // A card. Nothing here is synced.

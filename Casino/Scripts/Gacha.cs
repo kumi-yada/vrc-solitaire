@@ -6,12 +6,14 @@ using VRC.SDKBase;
 using org.kumagee;
 using UCS;
 
-// Rarity of a card back; drives its gacha pull chance. Top-level because U#
-// does not support nested type declarations.
+// Rarity of a card back, set per CardTheme row in the Inspector; drives its
+// gacha pull chance. Top-level because U# does not support nested types.
 public enum Rarity
 {
     Common,
+    Uncommon,
     Rare,
+    Epic,
     Legendary,
 }
 
@@ -31,15 +33,17 @@ public class Gacha : UdonSharpBehaviour
     // Cap the doubling so a large base price cannot overflow int.
     private const int MaxPriceShift = 18;
     // Each pull made today shifts 1% of pull chance from Common to the higher
-    // rarities (Rare and Legendary). Weights are in per-mille, so 1% is 10.
+    // rarities (Uncommon and up). Weights are in per-mille, so 1% is 10.
     private const int DailyLuckBonus = 10;
 
     // Pull chance per rarity, in per-mille (1/1000), before the daily luck
     // bonus. A pull rolls a rarity first, then a random card back of that
     // rarity. Per-mille lets Legendary sit at 0.1%, which whole percents
     // cannot express.
-    private const int CommonWeight = 900;
-    private const int RareWeight = 99;
+    private const int CommonWeight = 700;
+    private const int UncommonWeight = 200;
+    private const int RareWeight = 80;
+    private const int EpicWeight = 19;
     private const int LegendaryWeight = 1;
 
     [Tooltip("Chips wallet used to pay for gacha pulls.")]
@@ -126,7 +130,7 @@ public class Gacha : UdonSharpBehaviour
     // One gacha pull: pay the current daily price, roll a rarity by its
     // weight (plus today's luck bonus), then a random back of that rarity
     // from the whole non-White pool, unlock it if new, and notify the pulled
-    // back's name either way. Every pull also counts toward today's
+    // back's rarity and name either way. Every pull also counts toward today's
     // escalating price and luck. Everything is per-player PlayerData, so the
     // rolling client is the only one that needs to agree with itself.
     private void _Pull()
@@ -150,21 +154,27 @@ public class Gacha : UdonSharpBehaviour
             _unlockedFlags |= mask;
             PlayerData.SetInt(CardTheme.UnlockedKey, _unlockedFlags);
         }
-        _Notify(_BackName(back), gachaPullClip);
+        _Notify(_RarityName(_RarityOfBack(back)) + ": " + _BackName(back), gachaPullClip);
 
         _RefreshLabels();
         _BroadcastRefresh();
     }
 
-    // Each card back has a rarity that drives its pull chance.
-    public static Rarity GetRarity(CardBack back)
+    // Rarity of a pulled back, read from the CardTheme row that shows it.
+    private Rarity _RarityOfBack(int back)
     {
-        switch (back)
+        CardTheme[] themes = _Themes();
+        if (themes != null)
         {
-            case CardBack.Gold: return Rarity.Legendary;
-            case CardBack.Dual: return Rarity.Rare;
-            default: return Rarity.Common;
+            for (int i = 0; i < themes.Length; i++)
+            {
+                if (themes[i] != null && themes[i]._GetBack() == (CardBack)back)
+                {
+                    return themes[i].rarity;
+                }
+            }
         }
+        return Rarity.Common;
     }
 
     // Rolls one card back from the whole pool: every wired CardTheme row,
@@ -178,22 +188,28 @@ public class Gacha : UdonSharpBehaviour
             return (int)CardBack.Blue;
         }
 
-        // The bonus moves chance from Common to Rare and Legendary, split by
+        // The bonus moves chance from Common to the higher rarities, split by
         // their base weights; the total stays 1000. Legendary gets the rest.
         int bonus = _LuckBonus();
+        int higherTotal = UncommonWeight + RareWeight + EpicWeight + LegendaryWeight;
         int commonWeight = CommonWeight - bonus;
-        int rareWeight = RareWeight + bonus * RareWeight / (RareWeight + LegendaryWeight);
+        int uncommonWeight = UncommonWeight + bonus * UncommonWeight / higherTotal;
+        int rareWeight = RareWeight + bonus * RareWeight / higherTotal;
+        int epicWeight = EpicWeight + bonus * EpicWeight / higherTotal;
+        int legendaryWeight = 1000 - commonWeight - uncommonWeight - rareWeight - epicWeight;
 
         int roll = Random.Range(0, 1000);
         Rarity target;
         if (roll < commonWeight) target = Rarity.Common;
-        else if (roll < commonWeight + rareWeight) target = Rarity.Rare;
+        else if (roll < commonWeight + uncommonWeight) target = Rarity.Uncommon;
+        else if (roll < commonWeight + uncommonWeight + rareWeight) target = Rarity.Rare;
+        else if (roll < commonWeight + uncommonWeight + rareWeight + epicWeight) target = Rarity.Epic;
         else target = Rarity.Legendary;
 
         int count = 0;
         for (int i = 0; i < themes.Length; i++)
         {
-            if (themes[i] != null && themes[i]._GetBack() != CardBack.White && GetRarity(themes[i]._GetBack()) == target)
+            if (themes[i] != null && themes[i]._GetBack() != CardBack.White && themes[i].rarity == target)
             {
                 count++;
             }
@@ -207,7 +223,7 @@ public class Gacha : UdonSharpBehaviour
         int pick = Random.Range(0, count);
         for (int i = 0; i < themes.Length; i++)
         {
-            if (themes[i] != null && themes[i]._GetBack() != CardBack.White && GetRarity(themes[i]._GetBack()) == target)
+            if (themes[i] != null && themes[i]._GetBack() != CardBack.White && themes[i].rarity == target)
             {
                 if (pick == 0)
                 {
@@ -220,6 +236,18 @@ public class Gacha : UdonSharpBehaviour
         return (int)CardBack.Blue;
     }
 
+    private string _RarityName(Rarity rarity)
+    {
+        switch (rarity)
+        {
+            case Rarity.Uncommon: return _Text("RARITY_UNCOMMON");
+            case Rarity.Rare: return _Text("RARITY_RARE");
+            case Rarity.Epic: return _Text("RARITY_EPIC");
+            case Rarity.Legendary: return _Text("RARITY_LEGENDARY");
+            default: return _Text("RARITY_COMMON");
+        }
+    }
+
     private string _BackName(int back)
     {
         switch (back)
@@ -230,6 +258,7 @@ public class Gacha : UdonSharpBehaviour
             case (int)CardBack.Yellow: return _Text("BACK_YELLOW");
             case (int)CardBack.Green: return _Text("BACK_GREEN");
             case (int)CardBack.Dual: return _Text("BACK_DUAL");
+            case (int)CardBack.Sakura: return _Text("BACK_SAKURA");
             default: return _Text("BACK_WHITE");
         }
     }
