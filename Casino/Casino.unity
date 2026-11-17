@@ -58546,7 +58546,8 @@ MonoBehaviour:
   - {fileID: 856041633}
   - {fileID: 563830569}
   - {fileID: 606478411}
-  gachaBasePrice: 1000
+  gachaBasePrice: 2000
+  supporters: {fileID: 1548720592}
 --- !u!114 &3863199967072739167
 MonoBehaviour:
   m_ObjectHideFlags: 0

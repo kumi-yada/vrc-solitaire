@@ -32,9 +32,13 @@ public class Gacha : UdonSharpBehaviour
 
     // Cap the doubling so a large base price cannot overflow int.
     private const int MaxPriceShift = 18;
+    // The reset countdown is shown in quarter-hour steps (02:00, 01:45, ...).
+    private const int ResetStepSeconds = 900;
     // Each pull made today shifts 1% of pull chance from Common to the higher
     // rarities (Uncommon and up). Weights are in per-mille, so 1% is 10.
     private const int DailyLuckBonus = 10;
+    // Supporters shift double: 2% (20 per-mille) per pull.
+    private const int SupporterLuckBonus = 20;
 
     // Pull chance per rarity, in per-mille (1/1000), before the daily luck
     // bonus. A pull rolls a rarity first, then a random card back of that
@@ -53,6 +57,10 @@ public class Gacha : UdonSharpBehaviour
     [SerializeField] private AudioClip gachaPullClip;
     [SerializeField] private LocalizationManager localization;
     [SerializeField] private LocalizedText gachaStatusLabel;
+    [Tooltip("Label showing the time left until the daily pulls and price reset, as hh:mm.")]
+    [SerializeField] private LocalizedText gachaResetLabel;
+    [Tooltip("Optional supporter list. Supporters get +2% luck per pull instead of +1%.")]
+    [SerializeField] private Supporters supporters;
     [Tooltip("Every CardTheme prefab instance in the shop canvas.")]
     [SerializeField] private GameObject[] cardThemeObjects;
 
@@ -65,6 +73,7 @@ public class Gacha : UdonSharpBehaviour
     private int _pullsToday = 0;
     private LocalizedText _gachaLabel;
     private CardTheme[] _themes;
+    private int _lastResetStep = -1;
 
     void Start()
     {
@@ -82,6 +91,16 @@ public class Gacha : UdonSharpBehaviour
     public void _OnLanguageChanged()
     {
         _RefreshLabels();
+    }
+
+    void Update()
+    {
+        // Repaint only when the displayed quarter-hour changes; every repaint
+        // of a LocalizedText rebuilds the TMP text.
+        if (_ResetStep() != _lastResetStep)
+        {
+            _RefreshResetLabel();
+        }
     }
 
     public override void OnPlayerRestored(VRCPlayerApi player)
@@ -295,25 +314,65 @@ public class Gacha : UdonSharpBehaviour
 
         _gachaLabel.SetPrefixKeyAndSuffix("", "GACHA_PULL", " (" + _CurrentPrice() + "c)");
 
-        if (gachaStatusLabel == null)
+        if (gachaStatusLabel != null)
+        {
+            gachaStatusLabel.SetPrefixKeyAndSuffix(_Text("GACHA_PULLS_TODAY") + _pullsToday + " (", "GACHA_LUCK_BONUS", (_LuckBonus() / 10) + "%)");
+        }
+
+        _RefreshResetLabel();
+    }
+
+    // Quarter-hour steps left until the UTC day boundary. The label shows the
+    // floored step, so it ticks down 02:00 -> 01:45 -> 01:30 ...
+    private int _ResetStep()
+    {
+        // Udon exposes long division but not long modulo, so reduce to int
+        // seconds first and take the modulo there.
+        int nowSec = (int)(Networking.GetServerTimeInMilliseconds() / 1000L);
+        int remainingSec = 86400 - (nowSec % 86400);
+        if (remainingSec >= 86400)
+        {
+            remainingSec = 0;
+        }
+        return remainingSec / ResetStepSeconds;
+    }
+
+    private void _RefreshResetLabel()
+    {
+        int step = _ResetStep();
+        _lastResetStep = step;
+        if (gachaResetLabel == null)
         {
             return;
         }
+        gachaResetLabel.SetPrefixKeyAndSuffix(_Text("GACHA_RESET_IN") + _FormatResetTime(step), "", "");
+    }
 
-        gachaStatusLabel.SetPrefixKeyAndSuffix(_Text("GACHA_PULLS_TODAY") + _pullsToday + " (", "GACHA_LUCK_BONUS", (_LuckBonus() / 10) + "%)");
+    private string _FormatResetTime(int step)
+    {
+        int total = step * ResetStepSeconds;
+        int h = total / 3600;
+        int m = (total % 3600) / 60;
+        return (h < 10 ? "0" + h : h.ToString()) + ":" + (m < 10 ? "0" + m : m.ToString());
     }
 
     // Effective higher-rarity (Rare and Legendary) luck bonus in per-mille for
-    // the pulls made today: +1% (10) per pull, capped so Common never goes
-    // below 0%.
+    // the pulls made today: +1% (10) per pull, +2% (20) for supporters, capped
+    // so Common never goes below 0%.
     private int _LuckBonus()
     {
-        int bonus = _pullsToday * DailyLuckBonus;
+        int bonus = _pullsToday * (_IsLocalSupporter() ? SupporterLuckBonus : DailyLuckBonus);
         if (bonus > CommonWeight)
         {
             bonus = CommonWeight;
         }
         return bonus;
+    }
+
+    private bool _IsLocalSupporter()
+    {
+        if (supporters == null) return false;
+        return supporters.IsSupporter(Networking.LocalPlayer);
     }
 
     // Price of the next pull: the base price doubled once per pull made today.

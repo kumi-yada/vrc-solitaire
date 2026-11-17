@@ -165,6 +165,7 @@ MonoBehaviour:
   - BACK_SAKURA
   - RARITY_UNCOMMON
   - RARITY_EPIC
+  - GACHA_RESET_IN
 --- !u!114 &7263494941092799630
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -358,6 +359,7 @@ MonoBehaviour:
   - "\u6A31\u82B1"
   - "\u7F55\u89C1"
   - "\u53F2\u8BD7"
+  - "\u8DDD\u91CD\u7F6E "
 --- !u!114 &3449573099265861406
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -570,6 +572,7 @@ MonoBehaviour:
   - Sakura
   - Uncommon
   - Epic
+  - "Reset in "
 --- !u!114 &2650886696041933557
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -763,6 +766,7 @@ MonoBehaviour:
   - "\u30B5\u30AF\u30E9"
   - "\u30A2\u30F3\u30B3\u30E2\u30F3"
   - "\u30A8\u30D4\u30C3\u30AF"
+  - "\u30EA\u30BB\u30C3\u30C8\u307E\u3067 "
 --- !u!114 &3838494669122239583
 MonoBehaviour:
   m_ObjectHideFlags: 0
