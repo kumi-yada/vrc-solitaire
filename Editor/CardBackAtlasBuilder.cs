@@ -11,12 +11,15 @@ namespace org.kumagee.EditorTools
 {
     // Rebuilds the card-back atlases (Materials/cardback.png and
     // Materials/cardback_dark.png) from the per-design sources in
-    // Solitaire/CardBacks/White. The atlas is one horizontal strip of
-    // CardLogic.BackColumns cells; sources fill cells left to right in filename
-    // order. Cells past the source count keep their current pixels, because
-    // they are authored only inside the atlas (the joker backs) and have no
-    // source file. The dark pass inverts each source's RGB into CardBacks/Dark
-    // and the dark atlas.
+    // Solitaire/CardBacks/White. The atlas is a grid of CardLogic.BackAtlasColumns
+    // x CardLogic.BackAtlasRows cells, like the face atlas; sources fill cells
+    // left to right, top row first (cell row 0 is the top of the image, matching
+    // CardLogic's -row * cellY texture offset). Cells past the source count keep
+    // their current pixels, because they are authored only inside the atlas (the
+    // joker backs) and have no source file. Every source is inverted into
+    // CardBacks/Dark regardless of how many there are; only the first
+    // columns*rows cells land in the atlas. The dark pass inverts each source's
+    // RGB into CardBacks/Dark and the dark atlas.
     public static class CardBackAtlasBuilder
     {
         private const string WhiteDir = "Assets/Solitaire/CardBacks/White";
@@ -37,13 +40,6 @@ namespace org.kumagee.EditorTools
                     Debug.LogError("CardBackAtlasBuilder: no " + FilePrefix + "*.png in " + WhiteDir);
                     return;
                 }
-                if (sources.Length > CardLogic.BackColumns)
-                {
-                    Debug.LogError("CardBackAtlasBuilder: " + sources.Length + " sources exceed the "
-                        + CardLogic.BackColumns + " atlas columns");
-                    return;
-                }
-
                 Texture2D[] whites = new Texture2D[sources.Length];
                 for (int i = 0; i < sources.Length; i++)
                 {
@@ -80,8 +76,8 @@ namespace org.kumagee.EditorTools
                 }
 
                 AssetDatabase.SaveAssets();
-                Debug.Log("CardBackAtlasBuilder: wrote " + sources.Length + " cells into "
-                    + WhiteAtlasPath + " and " + DarkAtlasPath + ", plus "
+                Debug.Log("CardBackAtlasBuilder: wrote " + Math.Min(sources.Length, CardLogic.BackAtlasColumns * CardLogic.BackAtlasRows)
+                    + " cells into " + WhiteAtlasPath + " and " + DarkAtlasPath + ", plus "
                     + sources.Length + " dark sources in " + DarkDir);
             }
             finally
@@ -133,7 +129,9 @@ namespace org.kumagee.EditorTools
         {
             int cellW = cells[0].width;
             int cellH = cells[0].height;
-            Texture2D atlas = new Texture2D(CardLogic.BackColumns * cellW, cellH, TextureFormat.RGBA32, false);
+            int cols = CardLogic.BackAtlasColumns;
+            int rows = CardLogic.BackAtlasRows;
+            Texture2D atlas = new Texture2D(cols * cellW, rows * cellH, TextureFormat.RGBA32, false);
             temp.Add(atlas);
 
             Texture2D existing = Load(path);
@@ -154,9 +152,13 @@ namespace org.kumagee.EditorTools
                 atlas.SetPixels(new Color[atlas.width * atlas.height]);
             }
 
-            for (int i = 0; i < cells.Length; i++)
+            // Cells beyond the grid cannot be placed; their dark sources are
+            // still written from Build. Row 0 is the top of the image, matching
+            // CardLogic's -row * cellY texture offset.
+            int count = Math.Min(cells.Length, cols * rows);
+            for (int i = 0; i < count; i++)
             {
-                atlas.SetPixels(i * cellW, 0, cellW, cellH, cells[i].GetPixels());
+                atlas.SetPixels((i % cols) * cellW, (rows - 1 - i / cols) * cellH, cellW, cellH, cells[i].GetPixels());
             }
             atlas.Apply();
 

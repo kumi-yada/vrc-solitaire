@@ -31,8 +31,8 @@ namespace org.kumagee
         Spades
     }
 
-    // Card back designs on the back atlas. The value is the atlas column, so
-    // the whole enum is offset by nothing beyond its own order.
+    // Card back designs on the back atlas. The value is the atlas cell index:
+    // column = value % CardLogic.BackAtlasColumns, row = value / BackAtlasColumns.
     public enum CardBack
     {
         // Common
@@ -54,9 +54,24 @@ namespace org.kumagee
         GradientStar,
         GradientPink,
         CircleStar,
-        Sakura,
+        HalfGradient,
+        GradientYellow,
+        Stripes,
+        Dotted,
+        Rainbow,
 
+        // Rare
+        Paws,
+        Snow,
+        EasterEggs,
+        Bats,
+        Sakura,
+        PixelGrass,
+
+        // Epic
         Moon,
+        SpiderWeb,
+        BrokenGlass
     }
 
     // A card. Nothing here is synced.
@@ -81,9 +96,14 @@ namespace org.kumagee
         private const int AtlasRows = 10;
         private const int JokerRowIndex = 4;
         private const int HiddenColIndex = 9;
-        // Enum values are the atlas columns and run contiguously from 0, so the
-        // last member + 1 is the column count (Enum.GetValues is not exposed to Udon).
-        public const int BackColumns = (int)CardBack.Moon + 1;
+        // Enum values are the atlas cells and run contiguously from 0, so the
+        // last member + 1 is the design count (Enum.GetValues is not exposed to Udon).
+        public const int BackCount = (int)CardBack.BrokenGlass + 1;
+        // The back atlas is a grid like the face atlas. 6 columns of 552x752
+        // cells make a 3312x3760 texture, the squarest fit for 30 cells that
+        // stays under the 4096 import cap.
+        public const int BackAtlasColumns = 6;
+        public const int BackAtlasRows = (BackCount + BackAtlasColumns - 1) / BackAtlasColumns;
 
         public DeckManager DeckManager;
         public Solitaire Solitaire;
@@ -102,7 +122,7 @@ namespace org.kumagee
         [SerializeField] private Material FaceMaterial;
 
         [Header("Back")]
-        [Tooltip("The material displaying the card back texture atlas (9 columns). Must be assigned so the correct renderer/slot is targeted for SetBackDesign.")]
+        [Tooltip("The material displaying the card back texture atlas (6x5 grid). Must be assigned so the correct renderer/slot is targeted for SetBackDesign.")]
         [SerializeField] private Material BackMaterial;
 
         [Header("Placement")]
@@ -313,9 +333,12 @@ namespace org.kumagee
             if (!initialized) Init();
             if (backMaterial == null) return;
 
-            int col = (int)back % BackColumns;
-            float cellX = 1f / (float)BackColumns;
-            backMaterial.SetTextureOffset("_MainTex", new Vector2(col * cellX, 0f));
+            int index = (int)back;
+            int col = index % BackAtlasColumns;
+            int row = index / BackAtlasColumns;
+            float cellX = 1f / (float)BackAtlasColumns;
+            float cellY = 1f / (float)BackAtlasRows;
+            backMaterial.SetTextureOffset("_MainTex", new Vector2(col * cellX, -row * cellY));
         }
 
         // Swap the card back atlas texture (light vs dark) without touching the

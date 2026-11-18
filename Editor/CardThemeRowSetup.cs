@@ -14,8 +14,8 @@ namespace org.kumagee.EditorTools
     // A row's GameObject name is the card-back sprite suffix: a row named
     // "GradientStars" maps to Solitaire/CardBacks/White/Cardback_13_GradientStars.png,
     // and the NN in that filename is the CardBack enum value (CardBackAtlasBuilder
-    // fills atlas column NN from the same file, and CardLogic maps enum value to
-    // column). Resolving through the file index instead of the enum name is what
+    // fills atlas cell NN from the same file, and CardLogic maps enum value to
+    // cell). Resolving through the file index instead of the enum name is what
     // makes rows whose names differ from the enum members work ("GradientStars" ->
     // GradientStar, "Sakura" -> SakuraLines).
     //

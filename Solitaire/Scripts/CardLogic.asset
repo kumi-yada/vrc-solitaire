@@ -609,7 +609,7 @@ MonoBehaviour:
       Data: 40|UnityEngine.TooltipAttribute, UnityEngine.CoreModule
     - Name: tooltip
       Entry: 1
-      Data: The material displaying the card back texture atlas (9 columns). Must
+      Data: The material displaying the card back texture atlas (6x5 grid). Must
         be assigned so the correct renderer/slot is targeted for SetBackDesign.
     - Name: 
       Entry: 8

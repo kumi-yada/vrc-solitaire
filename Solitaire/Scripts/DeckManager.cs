@@ -177,9 +177,12 @@ namespace org.kumagee
                 deckBackMaterial.mainTexture = _defaultBackTexture;
             }
 
-            int col = (int)syncedCardBack % CardLogic.BackColumns;
-            float cellX = 1f / (float)CardLogic.BackColumns;
-            deckBackMaterial.SetTextureOffset("_MainTex", new Vector2(col * cellX, 0f));
+            int index = (int)syncedCardBack;
+            int col = index % CardLogic.BackAtlasColumns;
+            int row = index / CardLogic.BackAtlasColumns;
+            float cellX = 1f / (float)CardLogic.BackAtlasColumns;
+            float cellY = 1f / (float)CardLogic.BackAtlasRows;
+            deckBackMaterial.SetTextureOffset("_MainTex", new Vector2(col * cellX, -row * cellY));
         }
 
         private Material ResolveDeckBackMaterial()
