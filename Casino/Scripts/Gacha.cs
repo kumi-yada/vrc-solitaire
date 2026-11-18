@@ -96,6 +96,13 @@ public class Gacha : UdonSharpBehaviour
         // own.
         if (localization != null) localization.Register(this);
 
+        // The overlay only exists to show a pull result, so it starts hidden
+        // instead of flashing whatever sprite the scene left on it.
+        if (pullResultImage != null)
+        {
+            pullResultImage.gameObject.SetActive(false);
+        }
+
         _RefreshLabels();
     }
 
@@ -189,6 +196,7 @@ public class Gacha : UdonSharpBehaviour
         }
         _ScrollToBack(back);
         _ShowPullResult(back);
+        _FlashPulledRow(back);
 
         _RefreshLabels();
         _BroadcastRefresh();
@@ -300,12 +308,25 @@ public class Gacha : UdonSharpBehaviour
         // Corner 0 is bottom-left and corner 2 top-right, in world space.
         float itemCenter = (content.InverseTransformPoint(corners[0]).x + content.InverseTransformPoint(corners[2]).x) * 0.5f;
 
-        // horizontalNormalizedPosition 1 shows the left edge of the content,
-        // so the visible window starts at offset (1 - pos) * scrollable.
+        // horizontalNormalizedPosition is 0 at the left edge of the content,
+        // so the visible window starts at offset pos * scrollable.
         float offset = Mathf.Clamp(itemCenter - viewport.rect.width * 0.5f, 0f, scrollable);
 
         cardScroll.StopMovement();
-        cardScroll.horizontalNormalizedPosition = 1f - offset / scrollable;
+        cardScroll.horizontalNormalizedPosition = offset / scrollable;
+    }
+
+    // Flashes the pulled row's rarity background white and back (see
+    // CardTheme._FlashRarity), so the row the list scrolled to shows the hit.
+    private void _FlashPulledRow(int back)
+    {
+        CardTheme[] themes = _Themes();
+        int index = _IndexOfBack(back);
+        if (themes == null || index < 0 || themes[index] == null)
+        {
+            return;
+        }
+        themes[index]._FlashRarity();
     }
 
     // Index of the wired row showing the given card back, or -1.

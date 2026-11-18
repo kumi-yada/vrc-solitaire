@@ -995,7 +995,8 @@ PrefabInstance:
         type: 3}
       propertyPath: serializationData.Prefab
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 812374337981288255, guid: b7b14cdee5073465fbb87749ad256415,
+        type: 3}
     - target: {fileID: 2797979352425863877, guid: b7b14cdee5073465fbb87749ad256415,
         type: 3}
       propertyPath: m_Sprite
@@ -1976,7 +1977,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 1000, y: 180}
+  m_SizeDelta: {x: 0, y: 180}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &77157043
 MonoBehaviour:
@@ -2648,7 +2649,8 @@ PrefabInstance:
         type: 3}
       propertyPath: serializationData.Prefab
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 812374337981288255, guid: b7b14cdee5073465fbb87749ad256415,
+        type: 3}
     - target: {fileID: 2797979352425863877, guid: b7b14cdee5073465fbb87749ad256415,
         type: 3}
       propertyPath: m_Sprite
@@ -3444,8 +3446,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4294960896
-  m_fontColor: {r: 0, g: 0.90517235, b: 1, a: 1}
+    rgba: 4294967295
+  m_fontColor: {r: 1, g: 1, b: 1, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -4083,7 +4085,8 @@ PrefabInstance:
         type: 3}
       propertyPath: serializationData.Prefab
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 812374337981288255, guid: b7b14cdee5073465fbb87749ad256415,
+        type: 3}
     - target: {fileID: 2797979352425863877, guid: b7b14cdee5073465fbb87749ad256415,
         type: 3}
       propertyPath: m_Sprite
@@ -6105,7 +6108,8 @@ PrefabInstance:
         type: 3}
       propertyPath: serializationData.Prefab
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 812374337981288255, guid: b7b14cdee5073465fbb87749ad256415,
+        type: 3}
     - target: {fileID: 2797979352425863877, guid: b7b14cdee5073465fbb87749ad256415,
         type: 3}
       propertyPath: m_Sprite
@@ -6572,7 +6576,8 @@ PrefabInstance:
         type: 3}
       propertyPath: serializationData.Prefab
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 812374337981288255, guid: b7b14cdee5073465fbb87749ad256415,
+        type: 3}
     - target: {fileID: 2797979352425863877, guid: b7b14cdee5073465fbb87749ad256415,
         type: 3}
       propertyPath: m_Sprite
@@ -7992,7 +7997,8 @@ PrefabInstance:
         type: 3}
       propertyPath: serializationData.Prefab
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 812374337981288255, guid: b7b14cdee5073465fbb87749ad256415,
+        type: 3}
     - target: {fileID: 2797979352425863877, guid: b7b14cdee5073465fbb87749ad256415,
         type: 3}
       propertyPath: m_Sprite
@@ -11991,8 +11997,8 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 2032283969}
   m_HandleRect: {fileID: 2032283968}
   m_Direction: 0
-  m_Value: 1
-  m_Size: 0.9999997
+  m_Value: 0.00000007629389
+  m_Size: 0.55555534
   m_NumberOfSteps: 0
   m_OnValueChanged:
     m_PersistentCalls:
@@ -12192,7 +12198,8 @@ PrefabInstance:
         type: 3}
       propertyPath: serializationData.Prefab
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 812374337981288255, guid: b7b14cdee5073465fbb87749ad256415,
+        type: 3}
     - target: {fileID: 2797979352425863877, guid: b7b14cdee5073465fbb87749ad256415,
         type: 3}
       propertyPath: m_Sprite
@@ -15283,7 +15290,8 @@ PrefabInstance:
         type: 3}
       propertyPath: serializationData.Prefab
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 812374337981288255, guid: b7b14cdee5073465fbb87749ad256415,
+        type: 3}
     - target: {fileID: 2797979352425863877, guid: b7b14cdee5073465fbb87749ad256415,
         type: 3}
       propertyPath: m_Sprite
@@ -20154,6 +20162,11 @@ PrefabInstance:
       objectReference: {fileID: 3800000000000000008}
     - target: {fileID: 812374337981288255, guid: b7b14cdee5073465fbb87749ad256415,
         type: 3}
+      propertyPath: rarity
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 812374337981288255, guid: b7b14cdee5073465fbb87749ad256415,
+        type: 3}
       propertyPath: cardBack
       value: 16
       objectReference: {fileID: 0}
@@ -20167,7 +20180,8 @@ PrefabInstance:
         type: 3}
       propertyPath: serializationData.Prefab
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 812374337981288255, guid: b7b14cdee5073465fbb87749ad256415,
+        type: 3}
     - target: {fileID: 2797979352425863877, guid: b7b14cdee5073465fbb87749ad256415,
         type: 3}
       propertyPath: m_Sprite
@@ -20498,7 +20512,8 @@ PrefabInstance:
         type: 3}
       propertyPath: serializationData.Prefab
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 812374337981288255, guid: b7b14cdee5073465fbb87749ad256415,
+        type: 3}
     - target: {fileID: 2797979352425863877, guid: b7b14cdee5073465fbb87749ad256415,
         type: 3}
       propertyPath: m_Sprite
@@ -26966,7 +26981,8 @@ PrefabInstance:
         type: 3}
       propertyPath: serializationData.Prefab
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 812374337981288255, guid: b7b14cdee5073465fbb87749ad256415,
+        type: 3}
     - target: {fileID: 2797979352425863877, guid: b7b14cdee5073465fbb87749ad256415,
         type: 3}
       propertyPath: m_Sprite
@@ -29543,8 +29559,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4294960896
-  m_fontColor: {r: 0, g: 0.90517235, b: 1, a: 1}
+    rgba: 4294967295
+  m_fontColor: {r: 1, g: 1, b: 1, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -31257,6 +31273,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1035953081}
   - component: {fileID: 1035953082}
+  - component: {fileID: 1035953083}
   m_Layer: 0
   m_Name: Content
   m_TagString: Untagged
@@ -31280,7 +31297,7 @@ RectTransform:
   m_Father: {fileID: 1434195706}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 1, y: 1}
+  m_AnchorMax: {x: 0, y: 1}
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 360}
   m_Pivot: {x: 0, y: 1}
@@ -31303,13 +31320,27 @@ MonoBehaviour:
     m_Bottom: 0
   m_ChildAlignment: 0
   m_Spacing: 0
-  m_ChildForceExpandWidth: 1
+  m_ChildForceExpandWidth: 0
   m_ChildForceExpandHeight: 1
-  m_ChildControlWidth: 0
+  m_ChildControlWidth: 1
   m_ChildControlHeight: 0
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
+--- !u!114 &1035953083
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1035953080}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3245ec927659c4140ac4f8d17403cc18, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  m_HorizontalFit: 2
+  m_VerticalFit: 0
 --- !u!1 &1036044400 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 815040475768549837, guid: 2674f268860583949b53b63df24489ea,
@@ -35054,7 +35085,8 @@ PrefabInstance:
         type: 3}
       propertyPath: serializationData.Prefab
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 812374337981288255, guid: b7b14cdee5073465fbb87749ad256415,
+        type: 3}
     - target: {fileID: 2797979352425863877, guid: b7b14cdee5073465fbb87749ad256415,
         type: 3}
       propertyPath: m_Sprite
@@ -35647,6 +35679,11 @@ PrefabInstance:
       objectReference: {fileID: 3800000000000000008}
     - target: {fileID: 812374337981288255, guid: b7b14cdee5073465fbb87749ad256415,
         type: 3}
+      propertyPath: rarity
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 812374337981288255, guid: b7b14cdee5073465fbb87749ad256415,
+        type: 3}
       propertyPath: cardBack
       value: 17
       objectReference: {fileID: 0}
@@ -35660,7 +35697,8 @@ PrefabInstance:
         type: 3}
       propertyPath: serializationData.Prefab
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 812374337981288255, guid: b7b14cdee5073465fbb87749ad256415,
+        type: 3}
     - target: {fileID: 2797979352425863877, guid: b7b14cdee5073465fbb87749ad256415,
         type: 3}
       propertyPath: m_Sprite
@@ -36492,7 +36530,7 @@ PrefabInstance:
     - target: {fileID: 812374337981288255, guid: b7b14cdee5073465fbb87749ad256415,
         type: 3}
       propertyPath: rarity
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 812374337981288255, guid: b7b14cdee5073465fbb87749ad256415,
         type: 3}
@@ -36509,7 +36547,8 @@ PrefabInstance:
         type: 3}
       propertyPath: serializationData.Prefab
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 812374337981288255, guid: b7b14cdee5073465fbb87749ad256415,
+        type: 3}
     - target: {fileID: 2797979352425863877, guid: b7b14cdee5073465fbb87749ad256415,
         type: 3}
       propertyPath: m_Sprite
@@ -46872,7 +46911,8 @@ PrefabInstance:
         type: 3}
       propertyPath: serializationData.Prefab
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 812374337981288255, guid: b7b14cdee5073465fbb87749ad256415,
+        type: 3}
     - target: {fileID: 2797979352425863877, guid: b7b14cdee5073465fbb87749ad256415,
         type: 3}
       propertyPath: m_Sprite
@@ -50102,7 +50142,8 @@ PrefabInstance:
         type: 3}
       propertyPath: serializationData.Prefab
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 812374337981288255, guid: b7b14cdee5073465fbb87749ad256415,
+        type: 3}
     - target: {fileID: 2797979352425863877, guid: b7b14cdee5073465fbb87749ad256415,
         type: 3}
       propertyPath: m_Sprite
@@ -53373,7 +53414,8 @@ PrefabInstance:
         type: 3}
       propertyPath: serializationData.Prefab
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 812374337981288255, guid: b7b14cdee5073465fbb87749ad256415,
+        type: 3}
     - target: {fileID: 2797979352425863877, guid: b7b14cdee5073465fbb87749ad256415,
         type: 3}
       propertyPath: m_Sprite
@@ -54268,7 +54310,8 @@ PrefabInstance:
         type: 3}
       propertyPath: serializationData.Prefab
       value: 
-      objectReference: {fileID: 0}
+      objectReference: {fileID: 812374337981288255, guid: b7b14cdee5073465fbb87749ad256415,
+        type: 3}
     - target: {fileID: 2797979352425863877, guid: b7b14cdee5073465fbb87749ad256415,
         type: 3}
       propertyPath: m_Sprite
@@ -60288,7 +60331,7 @@ MonoBehaviour:
   - {fileID: 1252953219}
   cardScroll: {fileID: 1212273186}
   pullResultImage: {fileID: 7700000000000000004}
-  gachaBasePrice: 2000
+  gachaBasePrice: 0
   pullResultDuration: 4
   pullResultPopScale: 0.5
   pullResultTweenDuration: 0.2
@@ -65515,7 +65558,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_Color: {r: 0.6, g: 0.6, b: 0.6, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1

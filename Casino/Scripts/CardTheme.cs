@@ -2,6 +2,7 @@
 using UdonSharp;
 using UnityEngine;
 using UnityEngine.UI;
+using VRC.SDK3.Components;
 using VRC.SDK3.Persistence;
 using VRC.SDKBase;
 using VRC.Udon;
@@ -38,11 +39,17 @@ public class CardTheme : UdonSharpBehaviour
     [Tooltip("Gacha machine owning the shared state. Row changes are reported to it so it can update every other row.")]
     [SerializeField] private Gacha gacha;
 
+    [Tooltip("Color the rarity background flashes to when this row is pulled.")]
+    [SerializeField] private Color flashColor = Color.white;
+    [Tooltip("Seconds the rarity background takes to tween back from the flash color after a pull.")]
+    [SerializeField] private float flashDuration = 0.5f;
+
     private bool _dataRestored = false;
     private int _unlockedFlags = 1 << (int)CardBack.White;
     private int _equipped = (int)CardBack.White;
     private Sprite _lightSprite;
     private bool _lightCaptured = false;
+    private VRCTweenHandle _flashTween;
 
     // Read by Gacha when it builds the pull pool.
     public CardBack _GetBack()
@@ -88,6 +95,20 @@ public class CardTheme : UdonSharpBehaviour
             case Rarity.Legendary: return new Color(1f, 0.84f, 0f, RarityAlpha);   // FFD700 gold
             default: return new Color(0.02f, 1f, 0f, RarityAlpha);                 // 05FF00 green
         }
+    }
+
+    // Called by Gacha on the pulled row: snaps the rarity background to the
+    // flash color, then tweens back to the rarity color. A re-pull kills the
+    // running tween, so the row just re-flashes from white.
+    public void _FlashRarity()
+    {
+        if (rarityImage == null)
+        {
+            return;
+        }
+        _flashTween.Kill();
+        rarityImage.color = flashColor;
+        _flashTween = rarityImage.TweenColor(_RarityColor(), flashDuration, VRCTweenEase.OutCubic);
     }
 
     public override void OnPlayerRestored(VRCPlayerApi player)
@@ -166,8 +187,8 @@ public class CardTheme : UdonSharpBehaviour
 
         if (previewImage != null)
         {
-            // Locked backs show as a black silhouette, the equipped one stays bright, the rest dimmed.
-            previewImage.color = !unlocked ? Color.black : equipped ? Color.white : new Color(0.25f, 0.25f, 0.25f);
+            // Locked backs show as a black silhouette, the equipped one renders at 60% so it stays distinct from the dimmed rest without blowing out the art's hue.
+            previewImage.color = !unlocked ? Color.black : equipped ? new Color(0.6f, 0.6f, 0.6f) : new Color(0.2f, 0.2f, 0.2f);
         }
 
         if (imageButton != null)
@@ -228,5 +249,10 @@ public class CardTheme : UdonSharpBehaviour
         {
             previewImage.sprite = _lightSprite;
         }
+    }
+
+    void OnDestroy()
+    {
+        _flashTween.Kill();
     }
 }
