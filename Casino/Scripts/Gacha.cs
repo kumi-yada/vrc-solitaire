@@ -34,8 +34,6 @@ public class Gacha : UdonSharpBehaviour
 
     // Cap the doubling so a large base price cannot overflow int.
     private const int MaxPriceShift = 18;
-    // The reset countdown is shown in quarter-hour steps (02:00, 01:45, ...).
-    private const int ResetStepSeconds = 900;
     // Each pull made today shifts 1% of pull chance from Common to the higher
     // rarities (Uncommon and up). Weights are in per-mille, so 1% is 10.
     private const int DailyLuckBonus = 10;
@@ -58,7 +56,7 @@ public class Gacha : UdonSharpBehaviour
     [SerializeField] private Notification notification;
     [SerializeField] private LocalizationManager localization;
     [SerializeField] private LocalizedText gachaStatusLabel;
-    [Tooltip("Label showing the time left until the daily pulls and price reset, as hh:mm.")]
+    [Tooltip("Label showing the player's local time of the daily reset (UTC midnight), as hh:mm.")]
     [SerializeField] private LocalizedText gachaResetLabel;
     [Tooltip("Optional supporter list. Supporters get +2% luck per pull instead of +1%.")]
     [SerializeField] private Supporters supporters;
@@ -84,7 +82,7 @@ public class Gacha : UdonSharpBehaviour
     private int _pullsToday = 0;
     private LocalizedText _gachaLabel;
     private CardTheme[] _themes;
-    private int _lastResetStep = -1;
+    private int _lastResetMinutes = -1;
     private VRCTweenHandle _popTween;
     private VRCTweenHandle _hideTween;
     private VRCTweenHandle _hideDelay;
@@ -116,9 +114,9 @@ public class Gacha : UdonSharpBehaviour
 
     void Update()
     {
-        // Repaint only when the displayed quarter-hour changes; every repaint
-        // of a LocalizedText rebuilds the TMP text.
-        if (_ResetStep() != _lastResetStep)
+        // Repaint only when the displayed time changes; every repaint of a
+        // LocalizedText rebuilds the TMP text.
+        if (_LocalResetMinutes() != _lastResetMinutes)
         {
             _RefreshResetLabel();
         }
@@ -444,37 +442,34 @@ public class Gacha : UdonSharpBehaviour
         _RefreshResetLabel();
     }
 
-    // Quarter-hour steps left until the UTC day boundary. The label shows the
-    // floored step, so it ticks down 02:00 -> 01:45 -> 01:30 ...
-    private int _ResetStep()
+    // Minutes since local midnight of the next UTC midnight, computed from
+    // server time; the label shows this as hh:mm (e.g. 09:00 in JST). It only
+    // changes at the UTC day boundary and at DST transitions. Udon exposes
+    // long division but not long modulo, so the math stays in int seconds
+    // (same horizon as _ServerDay).
+    private int _LocalResetMinutes()
     {
-        // Udon exposes long division but not long modulo, so reduce to int
-        // seconds first and take the modulo there.
-        int nowSec = (int)(Networking.GetServerTimeInMilliseconds() / 1000L);
-        int remainingSec = 86400 - (nowSec % 86400);
-        if (remainingSec >= 86400)
-        {
-            remainingSec = 0;
-        }
-        return remainingSec / ResetStepSeconds;
+        int nextMidnightSec = (_ServerDay() + 1) * 86400;
+        System.DateTime nextMidnightUtc = new System.DateTime(1970, 1, 1, 0, 0, 0, System.DateTimeKind.Utc).AddSeconds(nextMidnightSec);
+        int offsetSec = (int)System.TimeZoneInfo.Local.GetUtcOffset(nextMidnightUtc).TotalSeconds;
+        return (nextMidnightSec + offsetSec) / 60 % 1440;
     }
 
     private void _RefreshResetLabel()
     {
-        int step = _ResetStep();
-        _lastResetStep = step;
+        int minutes = _LocalResetMinutes();
+        _lastResetMinutes = minutes;
         if (gachaResetLabel == null)
         {
             return;
         }
-        gachaResetLabel.SetPrefixKeyAndSuffix(_Text("GACHA_RESET_IN") + _FormatResetTime(step), "", "");
+        gachaResetLabel.SetPrefixKeyAndSuffix(_Text("GACHA_RESET_AT") + _FormatClock(minutes), "", "");
     }
 
-    private string _FormatResetTime(int step)
+    private string _FormatClock(int minutes)
     {
-        int total = step * ResetStepSeconds;
-        int h = total / 3600;
-        int m = (total % 3600) / 60;
+        int h = minutes / 60;
+        int m = minutes % 60;
         return (h < 10 ? "0" + h : h.ToString()) + ":" + (m < 10 ? "0" + m : m.ToString());
     }
 
@@ -508,12 +503,17 @@ public class Gacha : UdonSharpBehaviour
         return gachaBasePrice << shift;
     }
 
+    private int _ServerDay()
+    {
+        return (int)(Networking.GetServerTimeInMilliseconds() / 86400000L);
+    }
+
     // Daily gacha state resets at the UTC day boundary (server time). Called on
     // restore and before every pull, so a player sitting across midnight gets a
     // fresh price and luck.
     private void _CheckDayReset()
     {
-        int today = (int)(Networking.GetServerTimeInMilliseconds() / 86400000L);
+        int today = _ServerDay();
         if (_day == today)
         {
             return;
