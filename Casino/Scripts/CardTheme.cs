@@ -32,6 +32,9 @@ public class CardTheme : UdonSharpBehaviour
     [Tooltip("Dark variant of the preview image sprite.")]
     [SerializeField] private Sprite darkSprite;
 
+    [Tooltip("Background image of the row, tinted once with this row's rarity color.")]
+    [SerializeField] private Image rarityImage;
+
     [Tooltip("Gacha machine owning the shared state. Row changes are reported to it so it can update every other row.")]
     [SerializeField] private Gacha gacha;
 
@@ -47,9 +50,44 @@ public class CardTheme : UdonSharpBehaviour
         return cardBack;
     }
 
+    // The sprite this row currently shows; _SetDark swaps previewImage.sprite,
+    // so this always matches the active light/dark variant. Gacha uses it for
+    // the pull-result overlay.
+    public Sprite _GetPreviewSprite()
+    {
+        return previewImage != null ? previewImage.sprite : null;
+    }
+
     void Start()
     {
+        _ApplyRarityColor();
         _Refresh();
+    }
+
+    // Rarity is a serialized field and never changes at runtime, so the
+    // background tint is applied once here instead of on every refresh.
+    private void _ApplyRarityColor()
+    {
+        if (rarityImage != null)
+        {
+            rarityImage.color = _RarityColor();
+        }
+    }
+
+    // Rarity tint: fully saturated hue at a barely visible alpha so the card
+    // art stays readable. Hex values in the comments.
+    private const float RarityAlpha = 0.01f;
+
+    private Color _RarityColor()
+    {
+        switch (rarity)
+        {
+            case Rarity.Uncommon: return new Color(0f, 0.4f, 1f, RarityAlpha);      // 0066FF blue
+            case Rarity.Rare: return new Color(0.5f, 0f, 1f, RarityAlpha);         // 8000FF purple
+            case Rarity.Epic: return new Color(1f, 0f, 0f, RarityAlpha);           // FF0000 red
+            case Rarity.Legendary: return new Color(1f, 0.84f, 0f, RarityAlpha);   // FFD700 gold
+            default: return new Color(0.02f, 1f, 0f, RarityAlpha);                 // 05FF00 green
+        }
     }
 
     public override void OnPlayerRestored(VRCPlayerApi player)

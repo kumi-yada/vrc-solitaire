@@ -23,7 +23,7 @@ namespace org.kumagee.EditorTools
         private const string DarkDir = "Assets/Solitaire/CardBacks/Dark";
         private const string WhiteAtlasPath = "Assets/Solitaire/Materials/cardback.png";
         private const string DarkAtlasPath = "Assets/Solitaire/Materials/cardback_dark.png";
-        private const string FilePrefix = "cardback_";
+        private const string FilePrefix = "Cardback_";
 
         [MenuItem("Tools/Solitaire/Build Card Back Atlases")]
         public static void Build()

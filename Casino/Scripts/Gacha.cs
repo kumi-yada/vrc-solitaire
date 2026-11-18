@@ -1,6 +1,8 @@
 ﻿
 using UdonSharp;
 using UnityEngine;
+using UnityEngine.UI;
+using VRC.SDK3.Components;
 using VRC.SDK3.Persistence;
 using VRC.SDKBase;
 using org.kumagee;
@@ -52,9 +54,8 @@ public class Gacha : UdonSharpBehaviour
 
     [Tooltip("Chips wallet used to pay for gacha pulls.")]
     [SerializeField] private UdonChips udonChips;
+    [Tooltip("Error popups such as not enough chips. Pull results are shown by the pullResultImage overlay and by scrolling to the pulled row.")]
     [SerializeField] private Notification notification;
-    [Tooltip("Clip played with the pull-result notification instead of the Notification's default clip.")]
-    [SerializeField] private AudioClip gachaPullClip;
     [SerializeField] private LocalizationManager localization;
     [SerializeField] private LocalizedText gachaStatusLabel;
     [Tooltip("Label showing the time left until the daily pulls and price reset, as hh:mm.")]
@@ -63,9 +64,19 @@ public class Gacha : UdonSharpBehaviour
     [SerializeField] private Supporters supporters;
     [Tooltip("Every CardTheme prefab instance in the shop canvas.")]
     [SerializeField] private GameObject[] cardThemeObjects;
+    [Tooltip("Scroll container holding the CardTheme rows. After a pull it scrolls so the pulled row is visible.")]
+    [SerializeField] private ScrollRect cardScroll;
+    [Tooltip("Overlay image in the shop canvas, shown in front of the card-back list for a moment after a pull. Last child of the panel so it renders on top; raycast target off so it never blocks the rows.")]
+    [SerializeField] private Image pullResultImage;
 
     [Tooltip("Price of the first pull of a day in chips. Every further pull that day doubles it.")]
     public int gachaBasePrice = 5000;
+    [Tooltip("Seconds the pulled card back stays visible.")]
+    [SerializeField] private float pullResultDuration = 2f;
+    [Tooltip("Scale the pull result pops in from before settling at 1.")]
+    [SerializeField] private float pullResultPopScale = 0.5f;
+    [Tooltip("Duration of the pop-in and shrink-out tweens in seconds.")]
+    [SerializeField] private float pullResultTweenDuration = 0.2f;
 
     private bool _dataRestored = false;
     private int _unlockedFlags = 1 << (int)CardBack.White;
@@ -74,6 +85,9 @@ public class Gacha : UdonSharpBehaviour
     private LocalizedText _gachaLabel;
     private CardTheme[] _themes;
     private int _lastResetStep = -1;
+    private VRCTweenHandle _popTween;
+    private VRCTweenHandle _hideTween;
+    private VRCTweenHandle _hideDelay;
 
     void Start()
     {
@@ -148,10 +162,10 @@ public class Gacha : UdonSharpBehaviour
 
     // One gacha pull: pay the current daily price, roll a rarity by its
     // weight (plus today's luck bonus), then a random back of that rarity
-    // from the whole non-White pool, unlock it if new, and notify the pulled
-    // back's rarity and name either way. Every pull also counts toward today's
-    // escalating price and luck. Everything is per-player PlayerData, so the
-    // rolling client is the only one that needs to agree with itself.
+    // from the whole non-White pool, unlock it if new, and scroll the card
+    // list to the pulled row either way. Every pull also counts toward
+    // today's escalating price and luck. Everything is per-player PlayerData,
+    // so the rolling client is the only one that needs to agree with itself.
     private void _Pull()
     {
         int price = _CurrentPrice();
@@ -173,27 +187,147 @@ public class Gacha : UdonSharpBehaviour
             _unlockedFlags |= mask;
             PlayerData.SetInt(CardTheme.UnlockedKey, _unlockedFlags);
         }
-        _Notify(_RarityName(_RarityOfBack(back)) + ": " + _BackName(back), gachaPullClip);
+        _ScrollToBack(back);
+        _ShowPullResult(back);
 
         _RefreshLabels();
         _BroadcastRefresh();
     }
 
-    // Rarity of a pulled back, read from the CardTheme row that shows it.
-    private Rarity _RarityOfBack(int back)
+    // Shows the pulled card back as a temporary overlay in front of the
+    // card-back list: pops in with a small scale tween, then shrinks back out
+    // and deactivates after pullResultDuration. Re-pulling kills the pending
+    // hide so the overlay just swaps sprite and re-pops.
+    private void _ShowPullResult(int back)
     {
-        CardTheme[] themes = _Themes();
-        if (themes != null)
+        if (pullResultImage == null)
         {
-            for (int i = 0; i < themes.Length; i++)
+            return;
+        }
+
+        CardTheme[] themes = _Themes();
+        int index = _IndexOfBack(back);
+        if (index < 0 || themes == null || themes[index] == null)
+        {
+            return;
+        }
+
+        Sprite sprite = themes[index]._GetPreviewSprite();
+        if (sprite == null)
+        {
+            return;
+        }
+
+        _popTween.Kill();
+        _hideTween.Kill();
+        _hideDelay.Kill();
+
+        pullResultImage.sprite = sprite;
+        GameObject overlay = pullResultImage.gameObject;
+        overlay.SetActive(true);
+        overlay.transform.localScale = Vector3.one * pullResultPopScale;
+        _popTween = overlay.transform.TweenScale(Vector3.one, pullResultTweenDuration, VRCTweenEase.OutBack);
+        _hideDelay = VRCTween.DelayedCall(this, nameof(_HidePullResult), pullResultDuration);
+    }
+
+    // Shrinks the overlay back out; the delayed call deactivates it once the
+    // tween is done (same kill-and-delay pattern as IntroCard).
+    public void _HidePullResult()
+    {
+        _hideTween.Kill();
+        _hideDelay.Kill();
+        if (pullResultImage == null || !pullResultImage.gameObject.activeSelf)
+        {
+            return;
+        }
+        _hideTween = pullResultImage.transform.TweenScale(Vector3.zero, pullResultTweenDuration, VRCTweenEase.InCubic);
+        _hideDelay = VRCTween.DelayedCall(this, nameof(_FinishHidePullResult), pullResultTweenDuration);
+    }
+
+    public void _FinishHidePullResult()
+    {
+        if (pullResultImage != null)
+        {
+            pullResultImage.gameObject.SetActive(false);
+        }
+    }
+
+    void OnDestroy()
+    {
+        _popTween.Kill();
+        _hideTween.Kill();
+        _hideDelay.Kill();
+    }
+
+    // Scrolls the card-back list so the pulled row is centered in the
+    // viewport; the row itself shows the result (unlock state, later its
+    // rarity background color). Corner-based, so it works no matter how the
+    // rows are laid out inside the content.
+    private void _ScrollToBack(int back)
+    {
+        if (cardScroll == null)
+        {
+            return;
+        }
+
+        RectTransform content = cardScroll.content;
+        if (content == null)
+        {
+            return;
+        }
+
+        RectTransform viewport = cardScroll.viewport;
+        if (viewport == null)
+        {
+            viewport = (RectTransform)cardScroll.transform;
+        }
+
+        int index = _IndexOfBack(back);
+        if (index < 0 || cardThemeObjects[index] == null)
+        {
+            return;
+        }
+
+        float scrollable = content.rect.width - viewport.rect.width;
+        if (scrollable <= 0f)
+        {
+            return;
+        }
+
+        RectTransform item = (RectTransform)cardThemeObjects[index].transform;
+        Vector3[] corners = new Vector3[4];
+        item.GetWorldCorners(corners);
+        // Corner 0 is bottom-left and corner 2 top-right, in world space.
+        float itemCenter = (content.InverseTransformPoint(corners[0]).x + content.InverseTransformPoint(corners[2]).x) * 0.5f;
+
+        // horizontalNormalizedPosition 1 shows the left edge of the content,
+        // so the visible window starts at offset (1 - pos) * scrollable.
+        float offset = Mathf.Clamp(itemCenter - viewport.rect.width * 0.5f, 0f, scrollable);
+
+        cardScroll.StopMovement();
+        cardScroll.horizontalNormalizedPosition = 1f - offset / scrollable;
+    }
+
+    // Index of the wired row showing the given card back, or -1.
+    private int _IndexOfBack(int back)
+    {
+        if (cardThemeObjects == null)
+        {
+            return -1;
+        }
+        for (int i = 0; i < cardThemeObjects.Length; i++)
+        {
+            if (cardThemeObjects[i] == null)
             {
-                if (themes[i] != null && themes[i]._GetBack() == (CardBack)back)
-                {
-                    return themes[i].rarity;
-                }
+                continue;
+            }
+            CardTheme theme = cardThemeObjects[i].GetComponent<CardTheme>();
+            if (theme != null && theme._GetBack() == (CardBack)back)
+            {
+                return i;
             }
         }
-        return Rarity.Common;
+        return -1;
     }
 
     // Rolls one card back from the whole pool: every wired CardTheme row,
@@ -255,33 +389,6 @@ public class Gacha : UdonSharpBehaviour
         return (int)CardBack.Blue;
     }
 
-    private string _RarityName(Rarity rarity)
-    {
-        switch (rarity)
-        {
-            case Rarity.Uncommon: return _Text("RARITY_UNCOMMON");
-            case Rarity.Rare: return _Text("RARITY_RARE");
-            case Rarity.Epic: return _Text("RARITY_EPIC");
-            case Rarity.Legendary: return _Text("RARITY_LEGENDARY");
-            default: return _Text("RARITY_COMMON");
-        }
-    }
-
-    private string _BackName(int back)
-    {
-        switch (back)
-        {
-            case (int)CardBack.Gold: return _Text("BACK_GOLD");
-            case (int)CardBack.Blue: return _Text("BACK_BLUE");
-            case (int)CardBack.Red: return _Text("BACK_RED");
-            case (int)CardBack.Yellow: return _Text("BACK_YELLOW");
-            case (int)CardBack.Green: return _Text("BACK_GREEN");
-            case (int)CardBack.Dual: return _Text("BACK_DUAL");
-            case (int)CardBack.Sakura: return _Text("BACK_SAKURA");
-            default: return _Text("BACK_WHITE");
-        }
-    }
-
     private string _Text(string key)
     {
         if (localization == null) return key;
@@ -290,13 +397,7 @@ public class Gacha : UdonSharpBehaviour
 
     private void _Notify(string message)
     {
-        _Notify(message, null);
-    }
-
-    // A null clip makes the Notification fall back to its default sound.
-    private void _Notify(string message, AudioClip clip)
-    {
-        if (notification != null) notification.Notify(message, clip);
+        if (notification != null) notification.Notify(message);
     }
 
     // The gacha button's own label shows the price of the next pull; the

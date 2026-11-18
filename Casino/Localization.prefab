@@ -142,16 +142,6 @@ MonoBehaviour:
   - HI_LO_LOSE
   - HI_LO_TIE
   - GACHA_PULL
-  - GACHA_NEW
-  - GACHA_DUPLICATE
-  - GACHA_COMPLETE
-  - BACK_GOLD
-  - BACK_BLUE
-  - BACK_RED
-  - BACK_YELLOW
-  - BACK_GREEN
-  - BACK_DUAL
-  - BACK_WHITE
   - DEBUG_HILO
   - HI_LO_CONFIRM
   - HI_LO_PICK
@@ -159,12 +149,6 @@ MonoBehaviour:
   - HI_LO_CONTINUE
   - GACHA_PULLS_TODAY
   - GACHA_LUCK_BONUS
-  - RARITY_COMMON
-  - RARITY_RARE
-  - RARITY_LEGENDARY
-  - BACK_SAKURA
-  - RARITY_UNCOMMON
-  - RARITY_EPIC
   - GACHA_RESET_IN
 --- !u!114 &7263494941092799630
 MonoBehaviour:
@@ -336,16 +320,6 @@ MonoBehaviour:
   - "\u731C\u9519\u4E86\uFF01\u5E95\u6C60\u5F52\u96F6\uFF01"
   - "\u5E73\u70B9\uFF01\u5E95\u6C60\u4E0D\u53D8\u3002"
   - "\u62BD\u5361"
-  - "\u65B0\u5361\u80CC\uFF1A"
-  - "\u91CD\u590D\uFF1A"
-  - "\u5168\u90E8\u83B7\u5F97\uFF01"
-  - "\u91D1\u8272"
-  - "\u84DD\u8272"
-  - "\u7EA2\u8272"
-  - "\u9EC4\u8272"
-  - "\u7EFF\u8272"
-  - "\u53CC\u8272"
-  - "\u767D\u8272"
   - "\u9AD8\u4F4E(\u6D4B\u8BD5)"
   - "\u73A9\u53CC\u500D\u6E38\u620F\u5417\uFF1F"
   - "\u54EA\u4E00\u5F20\u66F4\u9AD8\uFF1F"
@@ -353,12 +327,6 @@ MonoBehaviour:
   - "\u7EE7\u7EED\u6E38\u620F\u5417\uFF1F"
   - "\u4ECA\u65E5\u5DF2\u62BD: "
   - "\u5E78\u8FD0 +"
-  - "\u666E\u901A"
-  - "\u7A00\u6709"
-  - "\u4F20\u8BF4"
-  - "\u6A31\u82B1"
-  - "\u7F55\u89C1"
-  - "\u53F2\u8BD7"
   - "\u8DDD\u91CD\u7F6E "
 --- !u!114 &3449573099265861406
 MonoBehaviour:
@@ -549,16 +517,6 @@ MonoBehaviour:
   - "Wrong - the pot is lost!"
   - "Tie! The pot stays."
   - PULL
-  - "New card back: "
-  - "Duplicate: "
-  - "All card backs unlocked!"
-  - Gold
-  - Blue
-  - Red
-  - Yellow
-  - Green
-  - Dual
-  - White
   - HI-LO (TEST)
   - Play double or nothing?
   - Which one is higher?
@@ -566,12 +524,6 @@ MonoBehaviour:
   - Continue playing?
   - 'Pulls today: '
   - luck +
-  - Common
-  - Rare
-  - Legendary
-  - Sakura
-  - Uncommon
-  - Epic
   - "Reset in "
 --- !u!114 &2650886696041933557
 MonoBehaviour:
@@ -743,16 +695,6 @@ MonoBehaviour:
   - "\u306F\u305A\u308C\uFF01\u30DD\u30C3\u30C8\u6CA1\u53CE\uFF01"
   - "\u540C\u70B9\uFF01\u30DD\u30C3\u30C8\u306F\u305D\u306E\u307E\u307E\u3002"
   - "\u30AC\u30C1\u30E3"
-  - "\u65B0\u3057\u3044\u30AB\u30FC\u30C9: "
-  - "\u91CD\u8907: "
-  - "\u30B3\u30F3\u30D7\u30EA\u30FC\u30C8\uFF01"
-  - "\u30B4\u30FC\u30EB\u30C9"
-  - "\u30D6\u30EB\u30FC"
-  - "\u30EC\u30C3\u30C9"
-  - "\u30A4\u30A8\u30ED\u30FC"
-  - "\u30B0\u30EA\u30FC\u30F3"
-  - "\u30C7\u30E5\u30A2\u30EB"
-  - "\u30DB\u30EF\u30A4\u30C8"
   - "\u30CF\u30A4\u30ED\u30FC(\u30C6\u30B9\u30C8)"
   - "\u30C0\u30D6\u30EB\u30AA\u30A2\u30CA\u30C3\u30B7\u30F3\u30B0\u306B\u6311\u6226\u3057\u307E\u3059\u304B\uFF1F"
   - "\u3069\u3061\u3089\u304C\u9AD8\u3044\uFF1F"
@@ -760,12 +702,6 @@ MonoBehaviour:
   - "\u7D9A\u3051\u307E\u3059\u304B\uFF1F"
   - "\u672C\u65E5\u306E\u62BD\u9078: "
   - "\u904B +"
-  - "\u30B3\u30E2\u30F3"
-  - "\u30EC\u30A2"
-  - "\u30EC\u30B8\u30A7\u30F3\u30C0\u30EA\u30FC"
-  - "\u30B5\u30AF\u30E9"
-  - "\u30A2\u30F3\u30B3\u30E2\u30F3"
-  - "\u30A8\u30D4\u30C3\u30AF"
   - "\u30EA\u30BB\u30C3\u30C8\u307E\u3067 "
 --- !u!114 &3838494669122239583
 MonoBehaviour:

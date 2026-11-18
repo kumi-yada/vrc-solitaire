@@ -35,14 +35,28 @@ namespace org.kumagee
     // the whole enum is offset by nothing beyond its own order.
     public enum CardBack
     {
-        Gold,
+        // Common
+        White,
         Blue,
         Red,
         Yellow,
         Green,
+        Purple,
+        Orange,
+        Pink,
+        Cyan,
+        Lime,
+        Gray,
+
+        // Uncommon
+        Gold,
         Dual,
-        White,
+        GradientStar,
+        GradientPink,
+        CircleStar,
         Sakura,
+
+        Moon,
     }
 
     // A card. Nothing here is synced.
@@ -67,7 +81,9 @@ namespace org.kumagee
         private const int AtlasRows = 10;
         private const int JokerRowIndex = 4;
         private const int HiddenColIndex = 9;
-        public const int BackColumns = 9;
+        // Enum values are the atlas columns and run contiguously from 0, so the
+        // last member + 1 is the column count (Enum.GetValues is not exposed to Udon).
+        public const int BackColumns = (int)CardBack.Moon + 1;
 
         public DeckManager DeckManager;
         public Solitaire Solitaire;

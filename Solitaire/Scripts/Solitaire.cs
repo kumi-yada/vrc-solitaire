@@ -254,6 +254,28 @@ namespace org.kumagee
         [UdonSynced] private Quaternion grabRotationA;
         [UdonSynced] private Quaternion grabRotationB;
 
+        // Read-only mirror of the higher-or-lower dialog for everyone but the
+        // dealer: whether the dialog is up, what its two cards are, and which
+        // label it shows. The dealer writes these in the same packet as the
+        // board - this behaviour is the only thing at the table that syncs - and
+        // only the dealer's client ever runs the hi-lo flow, so on every other
+        // client they are pure display state, rendered by _ApplyHiLoSpectator.
+        [UdonSynced] private bool syncedHiLoShown;
+        // One byte per dialog card: rank-1 in bits 0-3, suit in bits 4-5, face
+        // visible in bit 6; 0 means no card. A is the open card, B the face-down
+        // one until the pick reveals it.
+        [UdonSynced] private byte syncedHiLoCardA;
+        [UdonSynced] private byte syncedHiLoCardB;
+        [UdonSynced] private byte syncedHiLoLabel;
+        [UdonSynced] private bool syncedHiLoContinueShown;
+
+        private const byte HiLoLabelNone = 0;
+        private const byte HiLoLabelPick = 1;
+        private const byte HiLoLabelWin = 2;
+        private const byte HiLoLabelTie = 3;
+        private const byte HiLoLabelLose = 4;
+        private const byte HiLoCardFaceBit = 0x40;
+
         private bool boardDirty;
         private bool flushScheduled;
         private bool reapplyScheduled;
@@ -351,8 +373,10 @@ namespace org.kumagee
         private float payoutCredited;
 
         // Higher-or-lower state, shown on the win dialog. Only the dealer's client
-        // ever runs the win/payout path, so none of this needs to sync - spectators
-        // see the same board either way and never touch the money.
+        // ever runs the win/payout path; the game logic below stays local and
+        // never touches the money on anyone else's client. What does sync is the
+        // read-only display mirror (syncedHiLo*), so spectators see the dialog
+        // and its cards but cannot interact with it.
         //
         // hiLoStake is the pot at risk: the previous win, with the already-credited
         // part clawed back out of the wallet on the first pick. A correct pick
@@ -383,6 +407,10 @@ namespace org.kumagee
         // The next cards are not dealt - so not even the open one is visible -
         // until the player confirms continue.
         private bool hiLoContinuePending;
+        // Result label of the last settled round (HiLoLabel*), kept so the synced
+        // hiLoLabel byte can restate it while the continue question is pending;
+        // a fresh deal overwrites it.
+        private byte hiLoResultLabel;
 
         // The two hi-lo cards and their pick interacts, resolved from
         // DoubleOrNothingDialog in Start by name (Cards/HiLoCardAnchorA/HiLoCardA and
@@ -1543,6 +1571,10 @@ namespace org.kumagee
         // the pre-deal state, then flash the total earned on the banner.
         public void _ConfirmNewGame()
         {
+            // The dialog's YES/NO buttons are canvas clicks, so once the hi-lo
+            // dialog is visible to spectators they can press them too - refuse
+            // anyone but the game owner.
+            if (!_IsLocalGameOwner()) return;
             // A pending between-rounds hi-lo question owns this button: confirming
             // deals the next pair of cards rather than quitting.
             if (hiLoContinuePending)
@@ -1618,6 +1650,9 @@ namespace org.kumagee
         // the game simply continues.
         public void _CancelNewGame()
         {
+            // Owner-gated like _ConfirmNewGame: the hi-lo dialog's NO button is
+            // clickable by spectators once the dialog is up for them.
+            if (!_IsLocalGameOwner()) return;
             // Declining the between-rounds hi-lo question (NO) only settles the
             // hi-lo game: the pot as it stands is credited and the canvas/dialog
             // hides. It does not quit the underlying game - the start/quit
@@ -2068,6 +2103,20 @@ namespace org.kumagee
             Networking.SetOwner(owner, gameObject);
             syncedDealerId = owner.playerId;
             lastDealerId = syncedDealerId;
+            // A fresh deal always starts with the hi-lo dialog closed - locally
+            // and, via the packet below, on everyone else's client. The synced
+            // fields are reset explicitly because this client may have
+            // deserialized them true while spectating an earlier game.
+            hiLoGame = false;
+            hiLoOfferPending = false;
+            hiLoContinuePending = false;
+            hiLoAwaitingPick = false;
+            hiLoResultLabel = HiLoLabelNone;
+            syncedHiLoShown = false;
+            syncedHiLoCardA = 0;
+            syncedHiLoCardB = 0;
+            syncedHiLoLabel = HiLoLabelNone;
+            syncedHiLoContinueShown = false;
             // Announce the dealer to every other client: this is what tells
             // spectators and late joiners whose deck PlayerObject to build their
             // slot registry against. The table was just transferred to the dealer,
@@ -2866,12 +2915,14 @@ namespace org.kumagee
                 // PlayerObject hasn't spawned here yet.
                 spectatorInitRetries = 0;
                 _InitSpectator();
+                _ApplyHiLoSpectator();
                 return;
             }
 
             // Same game, new board. It arrives whole, so the table is never seen
             // part-updated the way it was when every card carried its own link.
             ApplyBoard();
+            _ApplyHiLoSpectator();
         }
 
         // Rebuilds this client's registry for a game dealt by someone else. Runs on
@@ -2929,6 +2980,7 @@ namespace org.kumagee
             RefreshStartLabel();
             _RefreshStartInteractable();
             RefreshWinMessage();
+            _ApplyHiLoSpectator();
         }
 
         // Re-parks this client's deck at CardHome after the table's pivot is
@@ -2959,6 +3011,10 @@ namespace org.kumagee
             _ClearUndoState();
             ClearBoard();
             if (ConfirmDialog != null) ConfirmDialog.SetActive(false);
+            if (DoubleOrNothingDialog != null) DoubleOrNothingDialog.SetActive(false);
+            _SetHiLoContinueVisible(false);
+            if (hiLoInteractA != null) hiLoInteractA._SetVisible(false);
+            if (hiLoInteractB != null) hiLoInteractB._SetVisible(false);
             if (Utilities.IsValid(resolvedDeck))
             {
                 resolvedDeck._ResetPosition();
@@ -2994,6 +3050,15 @@ namespace org.kumagee
             hiLoAwaitingPick = false;
             _SetHiLoContinueVisible(false);
             _RefreshHiLoInteracts();
+
+            // The display mirror goes out with the same packet that frees the
+            // table, so spectators close the dialog together with the game
+            // instead of keeping the last round on screen.
+            syncedHiLoShown = false;
+            syncedHiLoCardA = 0;
+            syncedHiLoCardB = 0;
+            syncedHiLoLabel = HiLoLabelNone;
+            syncedHiLoContinueShown = false;
 
             // Tell the rest of the instance the table is free again before the
             // cards go back; the dealer owns the table at this point, so the write
@@ -3082,6 +3147,13 @@ namespace org.kumagee
 
             syncedDealerId = -1;
             lastDealerId = -1;
+            // Same packet carries the hi-lo display reset, so spectators close
+            // the dialog along with the game.
+            syncedHiLoShown = false;
+            syncedHiLoCardA = 0;
+            syncedHiLoCardB = 0;
+            syncedHiLoLabel = HiLoLabelNone;
+            syncedHiLoContinueShown = false;
             RequestSerialization();
             RefreshStartLabel();
             _RefreshStartInteractable();
@@ -3775,6 +3847,7 @@ namespace org.kumagee
                 if (hiLoContinueLabel != null) hiLoContinueLabel.SetKey("HI_LO_CONTINUE");
                 _SetHiLoContinueVisible(true);
                 RefreshStartLabel();
+                _SyncHiLoDisplay();
                 return;
             }
             if (ConfirmDialog == null)
@@ -3790,6 +3863,7 @@ namespace org.kumagee
             if (ConfirmDialogLabel != null) ConfirmDialogLabel.SetPrefixKeyAndSuffix("", "HI_LO_CONTINUE", " " + BuildHiLoStakeAmount() + "c");
             ConfirmDialog.SetActive(true);
             RefreshStartLabel();
+            _SyncHiLoDisplay();
         }
 
         // Starts the higher-or-lower game and shows the dialog: the pot is the
@@ -3822,6 +3896,7 @@ namespace org.kumagee
             if (!hiLoGame) return;
             if (DoubleOrNothingDialog != null && !DoubleOrNothingDialog.activeSelf) return;
             hiLoContinuePending = false;
+            hiLoResultLabel = HiLoLabelNone;
             _SetHiLoContinueVisible(false);
 
             if (hiLoCarryOver)
@@ -3846,6 +3921,7 @@ namespace org.kumagee
             hiLoAwaitingPick = true;
             _RefreshHiLoInteracts();
             if (hiLoQuestionLabel != null) hiLoQuestionLabel.SetKey("HI_LO_PICK");
+            _SyncHiLoDisplay();
         }
 
         // Sets one hi-lo card's identity and face, then slides it from the deck to
@@ -3870,6 +3946,85 @@ namespace org.kumagee
             // game, so this is just a guard) the card appears directly at its anchor.
             Vector3 from = cardHome != null ? cardHome.position : anchor.position;
             card._SlideToAnchorLocal(anchor, from, HiLoSlideDuration);
+        }
+
+        // Packs one dialog card for the wire: rank-1 (bits 0-3) | suit (bits
+        // 4-5) | face-visible (bit 6). 0 means no card.
+        private byte _PackHiLoCard(int rank, int suit, bool faceVisible)
+        {
+            byte packed = (byte)((rank - 1) | (suit << 4));
+            if (faceVisible) packed = (byte)(packed | HiLoCardFaceBit);
+            return packed;
+        }
+
+        // Copies the local hi-lo display state into the synced fields and queues
+        // the packet. Only ever runs on the dealer's client - the only client
+        // where hiLoGame and friends are set - and the dealer owns the table for
+        // the whole game, so the write rides out with the next board flush.
+        private void _SyncHiLoDisplay()
+        {
+            syncedHiLoShown = hiLoGame && DoubleOrNothingDialog != null && DoubleOrNothingDialog.activeSelf;
+            syncedHiLoContinueShown = syncedHiLoShown && hiLoContinuePending && (hiLoContinueRow != null || hiLoContinueLabel != null);
+            syncedHiLoCardA = syncedHiLoShown ? _PackHiLoCard(hiLoRankA, hiLoSuitA, hiLoCardA != null && hiLoCardA.FaceVisible) : (byte)0;
+            syncedHiLoCardB = syncedHiLoShown ? _PackHiLoCard(hiLoRankB, hiLoSuitB, hiLoCardB != null && hiLoCardB.FaceVisible) : (byte)0;
+            if (!syncedHiLoShown) syncedHiLoLabel = HiLoLabelNone;
+            else if (hiLoAwaitingPick) syncedHiLoLabel = HiLoLabelPick;
+            else syncedHiLoLabel = hiLoResultLabel;
+            MarkBoardDirty();
+        }
+
+        // Renders the dealer's higher-or-lower display on this client, from
+        // OnDeserialization. Read-only by construction: the pick zones are armed
+        // only on the dealer's client (hiLoGame is set there alone) and every
+        // hi-lo handler is owner-gated, so a spectator sees the dialog and its
+        // cards but can press nothing on it.
+        private void _ApplyHiLoSpectator()
+        {
+            if (_IsLocalGameOwner()) return;
+            if (DoubleOrNothingDialog == null) return;
+
+            _ApplyHiLoCardSpectator(syncedHiLoCardA, hiLoCardA, hiLoAnchorA);
+            _ApplyHiLoCardSpectator(syncedHiLoCardB, hiLoCardB, hiLoAnchorB);
+            _SetHiLoContinueVisible(syncedHiLoShown && syncedHiLoContinueShown);
+            if (syncedHiLoShown && hiLoQuestionLabel != null)
+            {
+                if (syncedHiLoLabel == HiLoLabelWin) hiLoQuestionLabel.SetKey("HI_LO_WIN");
+                else if (syncedHiLoLabel == HiLoLabelTie) hiLoQuestionLabel.SetKey("HI_LO_TIE");
+                else if (syncedHiLoLabel == HiLoLabelLose) hiLoQuestionLabel.SetKey("HI_LO_LOSE");
+                else hiLoQuestionLabel.SetKey("HI_LO_PICK");
+            }
+            // Never armed off the dealer's client, whatever an earlier game left
+            // them in.
+            if (hiLoInteractA != null) hiLoInteractA._SetVisible(false);
+            if (hiLoInteractB != null) hiLoInteractB._SetVisible(false);
+            DoubleOrNothingDialog.SetActive(syncedHiLoShown);
+        }
+
+        // Puts one dialog card into the state the dealer synced: identity and
+        // face locally (the card is not part of the board, so _ApplyState goes
+        // straight through), then snapped onto its anchor - the dealer glides
+        // the card there, a spectator just lands it in the same resting pose.
+        private void _ApplyHiLoCardSpectator(byte packed, CardLogic card, Transform anchor)
+        {
+            if (card == null || anchor == null) return;
+
+            if (packed == 0)
+            {
+                card._ApplyState(-1, false, false);
+                card.ApplyFaceTexture();
+                return;
+            }
+
+            bool face = (packed & HiLoCardFaceBit) != 0;
+            if (resolvedDeck != null) resolvedDeck._ApplyCardBackTo(card);
+            card.SetCardIdentity((Rank)((packed & 0x0F) + 1), (Suit)((packed >> 4) & 0x03));
+            card._ApplyState(-1, face, face);
+            card.ApplyFaceTexture();
+
+            Transform mover = card.CardRoot != null ? card.CardRoot : card.transform;
+            if (mover.parent != anchor) mover.SetParent(anchor, false);
+            mover.localPosition = Vector3.zero;
+            mover.localRotation = Quaternion.identity;
         }
 
         // Arms or disarms the two pick interacts and sets their hover prompt. The
@@ -3937,6 +4092,7 @@ namespace org.kumagee
             CreditPayout();
             RefreshWinMessage();
             _RefreshStartInteractable();
+            _SyncHiLoDisplay();
         }
 
         public void _OnHiLoPickA() { _HiLoPick(0); }
@@ -3987,6 +4143,7 @@ namespace org.kumagee
 
             if (pickedRank == otherRank)
             {
+                hiLoResultLabel = HiLoLabelTie;
                 if (hiLoQuestionLabel != null) hiLoQuestionLabel.SetKey("HI_LO_TIE");
                 _OfferHiLoContinue();
                 return;
@@ -3996,6 +4153,7 @@ namespace org.kumagee
             {
                 hiLoStake *= 2f;
                 payoutEarned = hiLoStake;
+                hiLoResultLabel = HiLoLabelWin;
                 if (hiLoQuestionLabel != null) hiLoQuestionLabel.SetKey("HI_LO_WIN");
                 _OfferHiLoContinue();
                 return;
@@ -4009,9 +4167,11 @@ namespace org.kumagee
             // game being won, resets the table.
             hiLoStake = 0f;
             payoutEarned = 0f;
+            hiLoResultLabel = HiLoLabelLose;
             if (hiLoQuestionLabel != null) hiLoQuestionLabel.SetKey("HI_LO_LOSE");
             CreditPayout();
             _RefreshStartInteractable();
+            _SyncHiLoDisplay();
         }
     }
 }
