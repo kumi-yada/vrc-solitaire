@@ -58,6 +58,8 @@ public class Gacha : UdonSharpBehaviour
     [SerializeField] private LocalizedText gachaStatusLabel;
     [Tooltip("Label showing the player's local time of the daily reset (UTC midnight), as hh:mm.")]
     [SerializeField] private LocalizedText gachaResetLabel;
+    [Tooltip("Title above the card-back list, rewritten as \"Card Backs (n/total)\" with the unlocked count.")]
+    [SerializeField] private LocalizedText cardBacksTitle;
     [Tooltip("Optional supporter list. Supporters get +2% luck per pull instead of +1%.")]
     [SerializeField] private Supporters supporters;
     [Tooltip("Every CardTheme prefab instance in the shop canvas.")]
@@ -75,6 +77,12 @@ public class Gacha : UdonSharpBehaviour
     [SerializeField] private float pullResultPopScale = 0.5f;
     [Tooltip("Duration of the pop-in and shrink-out tweens in seconds.")]
     [SerializeField] private float pullResultTweenDuration = 0.2f;
+
+    [Tooltip("Shared audio pool the pull sound is played through.")]
+    [SerializeField] private AudioPool audioPool;
+
+    [Tooltip("Index into audioPool's Clips list of the sound played on a gacha pull.")]
+    [SerializeField] private int pullClipIndex = 6;
 
     private bool _dataRestored = false;
     private int _unlockedFlags = 1 << (int)CardBack.White;
@@ -180,6 +188,11 @@ public class Gacha : UdonSharpBehaviour
             return;
         }
         udonChips.money -= price;
+
+        if (audioPool != null)
+        {
+            audioPool.PlayLocalIndex(pullClipIndex, transform.position);
+        }
 
         int back = _RollBack();
 
@@ -420,9 +433,12 @@ public class Gacha : UdonSharpBehaviour
     }
 
     // The gacha button's own label shows the price of the next pull; the
-    // status line under it shows today's pull count and luck bonus.
+    // status line under it shows today's pull count and luck bonus; the shop
+    // title shows the unlocked card-back count.
     private void _RefreshLabels()
     {
+        _RefreshTitleLabel();
+
         if (_gachaLabel == null)
         {
             _gachaLabel = gameObject.GetComponentInChildren<LocalizedText>(true);
@@ -440,6 +456,34 @@ public class Gacha : UdonSharpBehaviour
         }
 
         _RefreshResetLabel();
+    }
+
+    // The shop title reads "Card Backs (n/30)": the translated CARD_BACKS title
+    // with the unlocked count as a plain suffix, so a language switch repaints
+    // the title while the numbers stay put.
+    private void _RefreshTitleLabel()
+    {
+        if (cardBacksTitle == null)
+        {
+            return;
+        }
+        cardBacksTitle.SetKeyAndSuffix("CARD_BACKS", " (" + _UnlockedCount() + "/" + CardLogic.BackCount + ")");
+    }
+
+    // Unlocked card backs, counted from the unlock bitmask (bit i is the
+    // CardBack with value i). White is unlocked by default, so a fresh player
+    // reads 1/30.
+    private int _UnlockedCount()
+    {
+        int count = 0;
+        for (int i = 0; i < CardLogic.BackCount; i++)
+        {
+            if ((_unlockedFlags & (1 << i)) != 0)
+            {
+                count++;
+            }
+        }
+        return count;
     }
 
     // Minutes since local midnight of the next UTC midnight, computed from

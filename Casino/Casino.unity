@@ -739,6 +739,7 @@ MonoBehaviour:
   - {fileID: 8300000, guid: 110ebcee71ce215abb75d4bedc5bda10, type: 3}
   - {fileID: 8300000, guid: 38595ceec20cc2ef4be3ab65e01e8a9c, type: 3}
   - {fileID: 8300000, guid: 63df9678462055cad821b09602a3d157, type: 3}
+  - {fileID: 8300000, guid: 787aa84b36db03b729041b7da8f72722, type: 3}
 --- !u!4 &48529228
 Transform:
   m_ObjectHideFlags: 0
@@ -62499,6 +62500,7 @@ MonoBehaviour:
   localization: {fileID: 356741924}
   gachaStatusLabel: {fileID: 941896527}
   gachaResetLabel: {fileID: 135113398}
+  cardBacksTitle: {fileID: 868100162}
   supporters: {fileID: 1548720592}
   cardThemeObjects:
   - {fileID: 1905914370}
@@ -62537,6 +62539,8 @@ MonoBehaviour:
   pullResultDuration: 4
   pullResultPopScale: 0.5
   pullResultTweenDuration: 0.2
+  audioPool: {fileID: 48529227}
+  pullClipIndex: 6
 --- !u!114 &3863199967072739167
 MonoBehaviour:
   m_ObjectHideFlags: 0
