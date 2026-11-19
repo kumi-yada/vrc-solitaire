@@ -5,14 +5,19 @@ using VRC.SDKBase;
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class Billboard : UdonSharpBehaviour
 {
-    [Tooltip("Only rotate around the Y axis")]
-    public bool yAxisOnly = false;
+    [Tooltip("Lock rotation around the X axis")]
+    public bool xAxisLocked = false;
+
+    [Tooltip("Lock rotation around the Y axis")]
+    public bool yAxisLocked = false;
 
     private Transform selfTransform;
+    private Quaternion initialRotation;
 
     void Start()
     {
         selfTransform = transform;
+        initialRotation = transform.rotation;
     }
 
     void Update()
@@ -24,10 +29,22 @@ public class Billboard : UdonSharpBehaviour
         }
 
         VRCPlayerApi.TrackingData head = localPlayer.GetTrackingData(VRCPlayerApi.TrackingDataType.Head);
-        if (yAxisOnly)
+        if (xAxisLocked && yAxisLocked)
+        {
+            selfTransform.rotation = initialRotation;
+            return;
+        }
+        if (xAxisLocked)
         {
             Vector3 target = head.position;
             target.y = selfTransform.position.y;
+            selfTransform.LookAt(target);
+        }
+        else if (yAxisLocked)
+        {
+            Vector3 target = head.position;
+            target.x = selfTransform.position.x;
+            target.z = selfTransform.position.z;
             selfTransform.LookAt(target);
         }
         else
