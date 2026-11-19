@@ -136,6 +136,8 @@ public class CardTheme : UdonSharpBehaviour
     // image equips this card back. Locked backs are silhouettes and do nothing.
     public void OnImageClick()
     {
+        Debug.Log($"[CardTheme] OnImageClick on '{gameObject.name}' cardBack={cardBack}, dataRestored={_dataRestored}, unlockedFlags={_unlockedFlags}, equipped={_equipped}");
+
         if (!_dataRestored)
         {
             return;

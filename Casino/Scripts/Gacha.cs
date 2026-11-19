@@ -97,13 +97,7 @@ public class Gacha : UdonSharpBehaviour
 
     void Start()
     {
-        // Registered so a language switch re-bakes the status line: its prefix
-        // holds translated text, which LocalizedText never re-translates on its
-        // own.
         if (localization != null) localization.Register(this);
-
-        // The overlay only exists to show a pull result, so it starts hidden
-        // instead of flashing whatever sprite the scene left on it.
         if (pullResultImage != null)
         {
             pullResultImage.gameObject.SetActive(false);
@@ -112,9 +106,6 @@ public class Gacha : UdonSharpBehaviour
         _RefreshLabels();
     }
 
-    // Called by the LocalizationManager on every language change. The status
-    // line mixes a translated prefix with live numbers, so it has to be rebuilt
-    // in the new language.
     public void _OnLanguageChanged()
     {
         _RefreshLabels();
