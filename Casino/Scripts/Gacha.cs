@@ -85,7 +85,8 @@ public class Gacha : UdonSharpBehaviour
     [SerializeField] private int pullClipIndex = 6;
 
     private bool _dataRestored = false;
-    private int _unlockedFlags = 1 << (int)CardBack.White;
+    private int _unlockedLo = 1 << (int)CardBack.White;
+    private int _unlockedHi = 0;
     private int _day = -1;
     private int _pullsToday = 0;
     private LocalizedText _gachaLabel;
@@ -128,9 +129,14 @@ public class Gacha : UdonSharpBehaviour
             return;
         }
 
-        if (PlayerData.TryGetInt(player, CardTheme.UnlockedKey, out int flags))
+        if (PlayerData.TryGetInt(player, CardTheme.UnlockedKey, out int lo))
         {
-            _unlockedFlags = flags;
+            _unlockedLo = lo;
+        }
+
+        if (PlayerData.TryGetInt(player, CardTheme.UnlockedKeyHi, out int hi))
+        {
+            _unlockedHi = hi;
         }
 
         if (PlayerData.TryGetInt(player, DayKey, out int day))
@@ -190,11 +196,12 @@ public class Gacha : UdonSharpBehaviour
         _pullsToday++;
         PlayerData.SetInt(PullsKey, _pullsToday);
 
-        int mask = 1 << back;
-        if ((_unlockedFlags & mask) == 0)
+        if (!CardTheme.IsUnlocked(_unlockedLo, _unlockedHi, back))
         {
-            _unlockedFlags |= mask;
-            PlayerData.SetInt(CardTheme.UnlockedKey, _unlockedFlags);
+            _unlockedLo |= CardTheme.LoMask(back);
+            _unlockedHi |= CardTheme.HiMask(back);
+            PlayerData.SetInt(CardTheme.UnlockedKey, _unlockedLo);
+            PlayerData.SetInt(CardTheme.UnlockedKeyHi, _unlockedHi);
         }
         _ScrollToBack(back);
         _ShowPullResult(back);
@@ -449,7 +456,7 @@ public class Gacha : UdonSharpBehaviour
         _RefreshResetLabel();
     }
 
-    // The shop title reads "Card Backs (n/30)": the translated CARD_BACKS title
+    // The shop title reads "Card Backs (n/34)": the translated CARD_BACKS title
     // with the unlocked count as a plain suffix, so a language switch repaints
     // the title while the numbers stay put.
     private void _RefreshTitleLabel()
@@ -463,13 +470,13 @@ public class Gacha : UdonSharpBehaviour
 
     // Unlocked card backs, counted from the unlock bitmask (bit i is the
     // CardBack with value i). White is unlocked by default, so a fresh player
-    // reads 1/30.
+    // reads 1/34.
     private int _UnlockedCount()
     {
         int count = 0;
         for (int i = 0; i < CardLogic.BackCount; i++)
         {
-            if ((_unlockedFlags & (1 << i)) != 0)
+            if (CardTheme.IsUnlocked(_unlockedLo, _unlockedHi, i))
             {
                 count++;
             }
@@ -570,7 +577,8 @@ public class Gacha : UdonSharpBehaviour
             return;
         }
 
-        if (PlayerData.TryGetInt(local, CardTheme.UnlockedKey, out int flags)) _unlockedFlags = flags;
+        if (PlayerData.TryGetInt(local, CardTheme.UnlockedKey, out int lo)) _unlockedLo = lo;
+        if (PlayerData.TryGetInt(local, CardTheme.UnlockedKeyHi, out int hi)) _unlockedHi = hi;
         if (PlayerData.TryGetInt(local, DayKey, out int day)) _day = day;
         if (PlayerData.TryGetInt(local, PullsKey, out int pulls)) _pullsToday = pulls;
     }

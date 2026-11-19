@@ -15,6 +15,9 @@ using org.kumagee;
 public class CardTheme : UdonSharpBehaviour
 {
     public const string UnlockedKey = "_RAINSTORM/CARD_THEME_UNLOCKED";
+    // Backs with value >= 32 do not fit in the int bitmask of UnlockedKey
+    // (1 << 32 wraps to bit 0), so they live in this second key.
+    public const string UnlockedKeyHi = "_RAINSTORM/CARD_THEME_UNLOCKED_HI";
     public const string EquippedKey = "_RAINSTORM/CARD_THEME_EQUIPPED";
     public const string DarkKey = "_RAINSTORM/CARD_THEME_DARK";
 
@@ -45,7 +48,8 @@ public class CardTheme : UdonSharpBehaviour
     [SerializeField] private float flashDuration = 0.5f;
 
     private bool _dataRestored = false;
-    private int _unlockedFlags = 1 << (int)CardBack.White;
+    private int _unlockedLo = 1 << (int)CardBack.White;
+    private int _unlockedHi = 0;
     private int _equipped = (int)CardBack.White;
     private Sprite _lightSprite;
     private bool _lightCaptured = false;
@@ -55,6 +59,23 @@ public class CardTheme : UdonSharpBehaviour
     public CardBack _GetBack()
     {
         return cardBack;
+    }
+
+    // Bit mask for a card back within the low key (backs 0-31)...
+    public static int LoMask(int back)
+    {
+        return back < 32 ? 1 << back : 0;
+    }
+
+    // ...and within the high key (backs 32-63). One of the two is always 0.
+    public static int HiMask(int back)
+    {
+        return back >= 32 ? 1 << (back - 32) : 0;
+    }
+
+    public static bool IsUnlocked(int lo, int hi, int back)
+    {
+        return (lo & LoMask(back)) != 0 || (hi & HiMask(back)) != 0;
     }
 
     // The sprite this row currently shows; _SetDark swaps previewImage.sprite,
@@ -118,9 +139,14 @@ public class CardTheme : UdonSharpBehaviour
             return;
         }
 
-        if (PlayerData.TryGetInt(player, UnlockedKey, out int flags))
+        if (PlayerData.TryGetInt(player, UnlockedKey, out int lo))
         {
-            _unlockedFlags = flags;
+            _unlockedLo = lo;
+        }
+
+        if (PlayerData.TryGetInt(player, UnlockedKeyHi, out int hi))
+        {
+            _unlockedHi = hi;
         }
 
         if (PlayerData.TryGetInt(player, EquippedKey, out int equipped))
@@ -136,7 +162,7 @@ public class CardTheme : UdonSharpBehaviour
     // image equips this card back. Locked backs are silhouettes and do nothing.
     public void OnImageClick()
     {
-        Debug.Log($"[CardTheme] OnImageClick on '{gameObject.name}' cardBack={cardBack}, dataRestored={_dataRestored}, unlockedFlags={_unlockedFlags}, equipped={_equipped}");
+        Debug.Log($"[CardTheme] OnImageClick on '{gameObject.name}' cardBack={cardBack}, dataRestored={_dataRestored}, unlockedLo={_unlockedLo}, unlockedHi={_unlockedHi}, equipped={_equipped}");
 
         if (!_dataRestored)
         {
@@ -146,7 +172,7 @@ public class CardTheme : UdonSharpBehaviour
         _SyncFromPlayerData();
 
         int backIndex = (int)cardBack;
-        if ((_unlockedFlags & (1 << backIndex)) == 0)
+        if (!IsUnlocked(_unlockedLo, _unlockedHi, backIndex))
         {
             return;
         }
@@ -170,7 +196,8 @@ public class CardTheme : UdonSharpBehaviour
             return;
         }
 
-        if (PlayerData.TryGetInt(local, UnlockedKey, out int flags)) _unlockedFlags = flags;
+        if (PlayerData.TryGetInt(local, UnlockedKey, out int lo)) _unlockedLo = lo;
+        if (PlayerData.TryGetInt(local, UnlockedKeyHi, out int hi)) _unlockedHi = hi;
         if (PlayerData.TryGetInt(local, EquippedKey, out int equipped)) _equipped = equipped;
     }
 
@@ -183,8 +210,7 @@ public class CardTheme : UdonSharpBehaviour
             _SyncFromPlayerData();
         }
 
-        int mask = 1 << (int)cardBack;
-        bool unlocked = (_unlockedFlags & mask) != 0;
+        bool unlocked = IsUnlocked(_unlockedLo, _unlockedHi, (int)cardBack);
         bool equipped = unlocked && _equipped == (int)cardBack;
 
         if (previewImage != null)

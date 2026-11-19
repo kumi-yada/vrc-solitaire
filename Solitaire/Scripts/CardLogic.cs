@@ -102,10 +102,10 @@ namespace org.kumagee
         private const int HiddenColIndex = 9;
         // Enum values are the atlas cells and run contiguously from 0, so the
         // last member + 1 is the design count (Enum.GetValues is not exposed to Udon).
-        public const int BackCount = (int)CardBack.BrokenGlass + 1;
+        public const int BackCount = (int)CardBack.Blackhole + 1;
         // The back atlas is a grid like the face atlas. 7 columns of 552x752
         // cells make a 3864x3760 texture (5 rows) that stays under the 4096
-        // import cap with room for 5 more cells.
+        // import cap with room for 1 more cell.
         public const int BackAtlasColumns = 7;
         public const int BackAtlasRows = (BackCount + BackAtlasColumns - 1) / BackAtlasColumns;
 
