@@ -42,6 +42,7 @@ public class LocalizedText : UdonSharpBehaviour
     public void SetKey(string key)
     {
         _key = key;
+        _suffix = "";
         _suffixKey = "";
         _formatArg = "";
         _OnLanguageChanged();
@@ -88,6 +89,7 @@ public class LocalizedText : UdonSharpBehaviour
     {
         _key = key;
         _formatArg = formatArg == null ? "" : formatArg;
+        _suffix = "";
         _suffixKey = "";
         _OnLanguageChanged();
     }
