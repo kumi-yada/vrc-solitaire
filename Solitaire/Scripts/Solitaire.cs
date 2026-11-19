@@ -187,10 +187,10 @@ namespace org.kumagee
         [Tooltip("Question label at the top of the hi-lo dialog. Solitaire rewrites it per round: HI_LO_PICK while a round waits for a pick, HI_LO_WIN/HI_LO_TIE/HI_LO_LOSE once it is settled. Wired to the dialog's Question label in the table prefabs; if unassigned, resolved from DoubleOrNothingDialog's Panel/Question child in Start.")]
         public LocalizedText HiLoQuestionLabel;
 
-        [Tooltip("YES/NO button row inside the hi-lo dialog, below the cards. Its buttons call _ConfirmNewGame/_CancelNewGame, which resolve the between-rounds continue question. Shown only while that question is pending (never after a lost round - that leaves the dialog up with the start/quit button as the way out). If unassigned, resolved from DoubleOrNothingDialog's Panel/Buttons child in Start.")]
+        [Tooltip("YES/NO button row inside the hi-lo dialog, below the cards. Its buttons call _ConfirmNewGame/_CancelNewGame, which resolve the between-rounds continue question. Shown only while that question is pending (never after a lost round - that leaves the dialog up with the start/quit button as the way out), and only on the dealer's client - spectators never see it. If unassigned, resolved from DoubleOrNothingDialog's Panel/Buttons child in Start.")]
         public GameObject HiLoContinueRow;
 
-        [Tooltip("Label of the between-rounds continue question inside the hi-lo dialog (below the cards). Shown only while the question is pending, with the HI_LO_CONTINUE key and no pot amount. If unassigned, resolved from DoubleOrNothingDialog's Panel/Text (TMP) child in Start.")]
+        [Tooltip("Label of the between-rounds continue question inside the hi-lo dialog (below the cards). Shown only while the question is pending, with the HI_LO_CONTINUE key and no pot amount, and only on the dealer's client - spectators never see it. If unassigned, resolved from DoubleOrNothingDialog's Panel/Text (TMP) child in Start.")]
         public LocalizedText HiLoContinueLabel;
 
         [Tooltip("Seconds a hi-lo card takes to glide from the deck to its spot when a round is dealt. Purely visual.")]
@@ -267,7 +267,6 @@ namespace org.kumagee
         [UdonSynced] private byte syncedHiLoCardA;
         [UdonSynced] private byte syncedHiLoCardB;
         [UdonSynced] private byte syncedHiLoLabel;
-        [UdonSynced] private bool syncedHiLoContinueShown;
 
         private const byte HiLoLabelNone = 0;
         private const byte HiLoLabelPick = 1;
@@ -1571,9 +1570,9 @@ namespace org.kumagee
         // the pre-deal state, then flash the total earned on the banner.
         public void _ConfirmNewGame()
         {
-            // The dialog's YES/NO buttons are canvas clicks, so once the hi-lo
-            // dialog is visible to spectators they can press them too - refuse
-            // anyone but the game owner.
+            // Backstop: the hi-lo row and the confirm canvas are never shown to
+            // spectators, but both are shared canvas buttons, so refuse anyone
+            // but the game owner regardless of what they can see.
             if (!_IsLocalGameOwner()) return;
             // A pending between-rounds hi-lo question owns this button: confirming
             // deals the next pair of cards rather than quitting.
@@ -1650,8 +1649,7 @@ namespace org.kumagee
         // the game simply continues.
         public void _CancelNewGame()
         {
-            // Owner-gated like _ConfirmNewGame: the hi-lo dialog's NO button is
-            // clickable by spectators once the dialog is up for them.
+            // Owner-gated like _ConfirmNewGame.
             if (!_IsLocalGameOwner()) return;
             // Declining the between-rounds hi-lo question (NO) only settles the
             // hi-lo game: the pot as it stands is credited and the canvas/dialog
@@ -2116,7 +2114,6 @@ namespace org.kumagee
             syncedHiLoCardA = 0;
             syncedHiLoCardB = 0;
             syncedHiLoLabel = HiLoLabelNone;
-            syncedHiLoContinueShown = false;
             // Announce the dealer to every other client: this is what tells
             // spectators and late joiners whose deck PlayerObject to build their
             // slot registry against. The table was just transferred to the dealer,
@@ -3058,7 +3055,6 @@ namespace org.kumagee
             syncedHiLoCardA = 0;
             syncedHiLoCardB = 0;
             syncedHiLoLabel = HiLoLabelNone;
-            syncedHiLoContinueShown = false;
 
             // Tell the rest of the instance the table is free again before the
             // cards go back; the dealer owns the table at this point, so the write
@@ -3153,7 +3149,6 @@ namespace org.kumagee
             syncedHiLoCardA = 0;
             syncedHiLoCardB = 0;
             syncedHiLoLabel = HiLoLabelNone;
-            syncedHiLoContinueShown = false;
             RequestSerialization();
             RefreshStartLabel();
             _RefreshStartInteractable();
@@ -3964,7 +3959,6 @@ namespace org.kumagee
         private void _SyncHiLoDisplay()
         {
             syncedHiLoShown = hiLoGame && DoubleOrNothingDialog != null && DoubleOrNothingDialog.activeSelf;
-            syncedHiLoContinueShown = syncedHiLoShown && hiLoContinuePending && (hiLoContinueRow != null || hiLoContinueLabel != null);
             syncedHiLoCardA = syncedHiLoShown ? _PackHiLoCard(hiLoRankA, hiLoSuitA, hiLoCardA != null && hiLoCardA.FaceVisible) : (byte)0;
             syncedHiLoCardB = syncedHiLoShown ? _PackHiLoCard(hiLoRankB, hiLoSuitB, hiLoCardB != null && hiLoCardB.FaceVisible) : (byte)0;
             if (!syncedHiLoShown) syncedHiLoLabel = HiLoLabelNone;
@@ -3975,9 +3969,11 @@ namespace org.kumagee
 
         // Renders the dealer's higher-or-lower display on this client, from
         // OnDeserialization. Read-only by construction: the pick zones are armed
-        // only on the dealer's client (hiLoGame is set there alone) and every
-        // hi-lo handler is owner-gated, so a spectator sees the dialog and its
-        // cards but can press nothing on it.
+        // only on the dealer's client (hiLoGame is set there alone), every
+        // hi-lo handler is owner-gated, and the between-rounds continue
+        // question with its YES/NO row is a dealer-only control that is never
+        // synced - so a spectator sees the dialog, its cards and the question
+        // label, and nothing they can press.
         private void _ApplyHiLoSpectator()
         {
             if (_IsLocalGameOwner()) return;
@@ -3985,7 +3981,7 @@ namespace org.kumagee
 
             _ApplyHiLoCardSpectator(syncedHiLoCardA, hiLoCardA, hiLoAnchorA);
             _ApplyHiLoCardSpectator(syncedHiLoCardB, hiLoCardB, hiLoAnchorB);
-            _SetHiLoContinueVisible(syncedHiLoShown && syncedHiLoContinueShown);
+            _SetHiLoContinueVisible(false);
             if (syncedHiLoShown && hiLoQuestionLabel != null)
             {
                 if (syncedHiLoLabel == HiLoLabelWin) hiLoQuestionLabel.SetKey("HI_LO_WIN");
