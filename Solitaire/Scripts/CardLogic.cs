@@ -59,6 +59,7 @@ namespace org.kumagee
         Stripes,
         Dotted,
         Rainbow,
+        DotMask,
 
         // Rare
         Paws,
@@ -67,11 +68,14 @@ namespace org.kumagee
         Bats,
         Sakura,
         PixelGrass,
+        Cracks,
+        Maze,
 
         // Epic
         Moon,
         SpiderWeb,
-        BrokenGlass
+        BrokenGlass,
+        Blackhole
     }
 
     // A card. Nothing here is synced.
@@ -99,10 +103,10 @@ namespace org.kumagee
         // Enum values are the atlas cells and run contiguously from 0, so the
         // last member + 1 is the design count (Enum.GetValues is not exposed to Udon).
         public const int BackCount = (int)CardBack.BrokenGlass + 1;
-        // The back atlas is a grid like the face atlas. 6 columns of 552x752
-        // cells make a 3312x3760 texture, the squarest fit for 30 cells that
-        // stays under the 4096 import cap.
-        public const int BackAtlasColumns = 6;
+        // The back atlas is a grid like the face atlas. 7 columns of 552x752
+        // cells make a 3864x3760 texture (5 rows) that stays under the 4096
+        // import cap with room for 5 more cells.
+        public const int BackAtlasColumns = 7;
         public const int BackAtlasRows = (BackCount + BackAtlasColumns - 1) / BackAtlasColumns;
 
         public DeckManager DeckManager;
