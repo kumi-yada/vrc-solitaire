@@ -85,7 +85,7 @@ public class Gacha : UdonSharpBehaviour
     [SerializeField] private int pullClipIndex = 6;
 
     private bool _dataRestored = false;
-    private int _unlockedLo = 1 << (int)CardBack.White;
+    private int _unlockedLo = CardTheme.DefaultUnlockedLo;
     private int _unlockedHi = 0;
     private int _day = -1;
     private int _pullsToday = 0;
@@ -131,6 +131,11 @@ public class Gacha : UdonSharpBehaviour
 
         if (PlayerData.TryGetInt(player, CardTheme.UnlockedKey, out int lo))
         {
+            if ((lo & CardTheme.DefaultUnlockedLo) == 0)
+            {
+                lo |= CardTheme.DefaultUnlockedLo;
+                PlayerData.SetInt(CardTheme.UnlockedKey, lo);
+            }
             _unlockedLo = lo;
         }
 
@@ -577,7 +582,7 @@ public class Gacha : UdonSharpBehaviour
             return;
         }
 
-        if (PlayerData.TryGetInt(local, CardTheme.UnlockedKey, out int lo)) _unlockedLo = lo;
+        if (PlayerData.TryGetInt(local, CardTheme.UnlockedKey, out int lo)) _unlockedLo = lo | CardTheme.DefaultUnlockedLo;
         if (PlayerData.TryGetInt(local, CardTheme.UnlockedKeyHi, out int hi)) _unlockedHi = hi;
         if (PlayerData.TryGetInt(local, DayKey, out int day)) _day = day;
         if (PlayerData.TryGetInt(local, PullsKey, out int pulls)) _pullsToday = pulls;

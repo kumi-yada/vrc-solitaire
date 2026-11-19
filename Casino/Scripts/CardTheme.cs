@@ -18,6 +18,10 @@ public class CardTheme : UdonSharpBehaviour
     // Backs with value >= 32 do not fit in the int bitmask of UnlockedKey
     // (1 << 32 wraps to bit 0), so they live in this second key.
     public const string UnlockedKeyHi = "_RAINSTORM/CARD_THEME_UNLOCKED_HI";
+    // Bit mask every player starts with. White is the free default back, so
+    // the load paths OR this in rather than trusting the saved value: a save
+    // written before White was guaranteed would otherwise lock it again.
+    public const int DefaultUnlockedLo = 1 << (int)CardBack.White;
     public const string EquippedKey = "_RAINSTORM/CARD_THEME_EQUIPPED";
     public const string DarkKey = "_RAINSTORM/CARD_THEME_DARK";
 
@@ -48,7 +52,7 @@ public class CardTheme : UdonSharpBehaviour
     [SerializeField] private float flashDuration = 0.5f;
 
     private bool _dataRestored = false;
-    private int _unlockedLo = 1 << (int)CardBack.White;
+    private int _unlockedLo = DefaultUnlockedLo;
     private int _unlockedHi = 0;
     private int _equipped = (int)CardBack.White;
     private Sprite _lightSprite;
@@ -75,6 +79,9 @@ public class CardTheme : UdonSharpBehaviour
 
     public static bool IsUnlocked(int lo, int hi, int back)
     {
+        // White is the free default and always unlocked, whatever the saved
+        // bitmask says.
+        if (back == (int)CardBack.White) return true;
         return (lo & LoMask(back)) != 0 || (hi & HiMask(back)) != 0;
     }
 
@@ -141,6 +148,11 @@ public class CardTheme : UdonSharpBehaviour
 
         if (PlayerData.TryGetInt(player, UnlockedKey, out int lo))
         {
+            if ((lo & DefaultUnlockedLo) == 0)
+            {
+                lo |= DefaultUnlockedLo;
+                PlayerData.SetInt(UnlockedKey, lo);
+            }
             _unlockedLo = lo;
         }
 
@@ -196,7 +208,7 @@ public class CardTheme : UdonSharpBehaviour
             return;
         }
 
-        if (PlayerData.TryGetInt(local, UnlockedKey, out int lo)) _unlockedLo = lo;
+        if (PlayerData.TryGetInt(local, UnlockedKey, out int lo)) _unlockedLo = lo | DefaultUnlockedLo;
         if (PlayerData.TryGetInt(local, UnlockedKeyHi, out int hi)) _unlockedHi = hi;
         if (PlayerData.TryGetInt(local, EquippedKey, out int equipped)) _equipped = equipped;
     }
