@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-19 - v2.0 Casino Gacha Update
+
+- Change Double or Nothing game to a simple guess high-low game
+- Use gacha to earn card backs
+- Add more card backs
+
 ## 2026-10-29 - v1.5 First-time guidance and QoL
 
 - Add undo button to solitaire games
