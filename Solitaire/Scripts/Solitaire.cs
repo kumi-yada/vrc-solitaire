@@ -184,7 +184,7 @@ namespace org.kumagee
         [Tooltip("Label on the dialog. No longer shown - the pot amount is not displayed on the hi-lo canvas (the two cards carry the round); the label stays hidden in the dialog prefab. Kept wired so existing prefab references resolve.")]
         public LocalizedText DoubleOrNothingAmountLabel;
 
-        [Tooltip("Question label at the top of the hi-lo dialog. Solitaire rewrites it per round: HI_LO_PICK while a round waits for a pick, HI_LO_WIN/HI_LO_TIE/HI_LO_LOSE once it is settled. Wired to the dialog's Question label in the table prefabs; if unassigned, resolved from DoubleOrNothingDialog's Panel/Question child in Start.")]
+        [Tooltip("Question label at the top of the hi-lo dialog. Solitaire rewrites it per round: HI_LO_PICK while a round waits for a pick (no amount), HI_LO_WIN/HI_LO_TIE/HI_LO_LOSE once it is settled with the pot amount appended (the forfeited amount on a loss). Wired to the dialog's Question label in the table prefabs; if unassigned, resolved from DoubleOrNothingDialog's Panel/Question child in Start.")]
         public LocalizedText HiLoQuestionLabel;
 
         [Tooltip("YES/NO button row inside the hi-lo dialog, below the cards. Its buttons call _ConfirmNewGame/_CancelNewGame, which resolve the between-rounds continue question. Shown only while that question is pending (never after a lost round - that leaves the dialog up with the start/quit button as the way out), and only on the dealer's client - spectators never see it. If unassigned, resolved from DoubleOrNothingDialog's Panel/Buttons child in Start.")]
@@ -267,6 +267,11 @@ namespace org.kumagee
         [UdonSynced] private byte syncedHiLoCardA;
         [UdonSynced] private byte syncedHiLoCardB;
         [UdonSynced] private byte syncedHiLoLabel;
+
+        // Amount shown in the synced top label: the current pot after a win/tie,
+        // the forfeited pot after a loss; 0 while a pick is pending or the dialog
+        // is hidden.
+        [UdonSynced] private float syncedHiLoAmount;
 
         private const byte HiLoLabelNone = 0;
         private const byte HiLoLabelPick = 1;
@@ -410,6 +415,8 @@ namespace org.kumagee
         // hiLoLabel byte can restate it while the continue question is pending;
         // a fresh deal overwrites it.
         private byte hiLoResultLabel;
+        // Pot forfeited by the last lost round, shown in the HI_LO_LOSE label.
+        private float hiLoLostAmount;
 
         // The two hi-lo cards and their pick interacts, resolved from
         // DoubleOrNothingDialog in Start by name (Cards/HiLoCardAnchorA/HiLoCardA and
@@ -423,7 +430,9 @@ namespace org.kumagee
         private GameInteract hiLoInteractB;
         // The "Question" label at the top of the dialog: HI_LO_PICK while a round
         // waits for a pick, the result key (HI_LO_WIN/HI_LO_TIE/HI_LO_LOSE) once it
-        // is settled - so a lost round still up says why.
+        // is settled - so a lost round still up says why. Once settled the pot
+        // amount rides along (the forfeited amount on a loss); while a pick is
+        // pending no amount is shown.
         private LocalizedText hiLoQuestionLabel;
         // The in-canvas continue question (label + YES/NO row below the cards),
         // shown only while hiLoContinuePending.
@@ -1997,12 +2006,17 @@ namespace org.kumagee
 
         private string BuildPayoutAmount()
         {
-            if (Mathf.Approximately(payoutEarned, Mathf.Floor(payoutEarned)))
+            return _FormatChips(payoutEarned);
+        }
+
+        private string _FormatChips(float amount)
+        {
+            if (Mathf.Approximately(amount, Mathf.Floor(amount)))
             {
-                int amount = (int)payoutEarned;
-                return $"{amount}";
+                int whole = (int)amount;
+                return $"{whole}";
             }
-            return $"{payoutEarned}";
+            return $"{amount}";
         }
 
         public void Deal(VRCPlayerApi owner = null)
@@ -2110,10 +2124,12 @@ namespace org.kumagee
             hiLoContinuePending = false;
             hiLoAwaitingPick = false;
             hiLoResultLabel = HiLoLabelNone;
+            hiLoLostAmount = 0f;
             syncedHiLoShown = false;
             syncedHiLoCardA = 0;
             syncedHiLoCardB = 0;
             syncedHiLoLabel = HiLoLabelNone;
+            syncedHiLoAmount = 0f;
             // Announce the dealer to every other client: this is what tells
             // spectators and late joiners whose deck PlayerObject to build their
             // slot registry against. The table was just transferred to the dealer,
@@ -3643,12 +3659,7 @@ namespace org.kumagee
 
         private string BuildHiLoStakeAmount()
         {
-            if (Mathf.Approximately(hiLoStake, Mathf.Floor(hiLoStake)))
-            {
-                int stake = (int)hiLoStake;
-                return $"{stake}";
-            }
-            return $"{hiLoStake}";
+            return _FormatChips(hiLoStake);
         }
 
         // ---- Records
@@ -3892,6 +3903,7 @@ namespace org.kumagee
             if (DoubleOrNothingDialog != null && !DoubleOrNothingDialog.activeSelf) return;
             hiLoContinuePending = false;
             hiLoResultLabel = HiLoLabelNone;
+            hiLoLostAmount = 0f;
             _SetHiLoContinueVisible(false);
 
             if (hiLoCarryOver)
@@ -3961,9 +3973,21 @@ namespace org.kumagee
             syncedHiLoShown = hiLoGame && DoubleOrNothingDialog != null && DoubleOrNothingDialog.activeSelf;
             syncedHiLoCardA = syncedHiLoShown ? _PackHiLoCard(hiLoRankA, hiLoSuitA, hiLoCardA != null && hiLoCardA.FaceVisible) : (byte)0;
             syncedHiLoCardB = syncedHiLoShown ? _PackHiLoCard(hiLoRankB, hiLoSuitB, hiLoCardB != null && hiLoCardB.FaceVisible) : (byte)0;
-            if (!syncedHiLoShown) syncedHiLoLabel = HiLoLabelNone;
-            else if (hiLoAwaitingPick) syncedHiLoLabel = HiLoLabelPick;
-            else syncedHiLoLabel = hiLoResultLabel;
+            if (!syncedHiLoShown)
+            {
+                syncedHiLoLabel = HiLoLabelNone;
+                syncedHiLoAmount = 0f;
+            }
+            else if (hiLoAwaitingPick)
+            {
+                syncedHiLoLabel = HiLoLabelPick;
+                syncedHiLoAmount = 0f;
+            }
+            else
+            {
+                syncedHiLoLabel = hiLoResultLabel;
+                syncedHiLoAmount = hiLoResultLabel == HiLoLabelLose ? hiLoLostAmount : hiLoStake;
+            }
             MarkBoardDirty();
         }
 
@@ -3984,9 +4008,10 @@ namespace org.kumagee
             _SetHiLoContinueVisible(false);
             if (syncedHiLoShown && hiLoQuestionLabel != null)
             {
-                if (syncedHiLoLabel == HiLoLabelWin) hiLoQuestionLabel.SetKey("HI_LO_WIN");
-                else if (syncedHiLoLabel == HiLoLabelTie) hiLoQuestionLabel.SetKey("HI_LO_TIE");
-                else if (syncedHiLoLabel == HiLoLabelLose) hiLoQuestionLabel.SetKey("HI_LO_LOSE");
+                string amount = _FormatChips(syncedHiLoAmount) + "c";
+                if (syncedHiLoLabel == HiLoLabelWin) hiLoQuestionLabel.SetKeyAndSuffix("HI_LO_WIN", " " + amount);
+                else if (syncedHiLoLabel == HiLoLabelTie) hiLoQuestionLabel.SetKeyAndSuffix("HI_LO_TIE", " " + amount);
+                else if (syncedHiLoLabel == HiLoLabelLose) hiLoQuestionLabel.SetKeyAndFormatArg("HI_LO_LOSE", amount);
                 else hiLoQuestionLabel.SetKey("HI_LO_PICK");
             }
             // Never armed off the dealer's client, whatever an earlier game left
@@ -4140,7 +4165,7 @@ namespace org.kumagee
             if (pickedRank == otherRank)
             {
                 hiLoResultLabel = HiLoLabelTie;
-                if (hiLoQuestionLabel != null) hiLoQuestionLabel.SetKey("HI_LO_TIE");
+                if (hiLoQuestionLabel != null) hiLoQuestionLabel.SetKeyAndSuffix("HI_LO_TIE", " " + BuildHiLoStakeAmount() + "c");
                 _OfferHiLoContinue();
                 return;
             }
@@ -4150,7 +4175,7 @@ namespace org.kumagee
                 hiLoStake *= 2f;
                 payoutEarned = hiLoStake;
                 hiLoResultLabel = HiLoLabelWin;
-                if (hiLoQuestionLabel != null) hiLoQuestionLabel.SetKey("HI_LO_WIN");
+                if (hiLoQuestionLabel != null) hiLoQuestionLabel.SetKeyAndSuffix("HI_LO_WIN", " " + BuildHiLoStakeAmount() + "c");
                 _OfferHiLoContinue();
                 return;
             }
@@ -4161,10 +4186,11 @@ namespace org.kumagee
             // as finished (see _IsHiLoRunning), so the start/quit button comes
             // back; one press settles the empty pot via _OnHiLoCollect and, the
             // game being won, resets the table.
+            hiLoLostAmount = hiLoStake;
             hiLoStake = 0f;
             payoutEarned = 0f;
             hiLoResultLabel = HiLoLabelLose;
-            if (hiLoQuestionLabel != null) hiLoQuestionLabel.SetKey("HI_LO_LOSE");
+            if (hiLoQuestionLabel != null) hiLoQuestionLabel.SetKeyAndFormatArg("HI_LO_LOSE", _FormatChips(hiLoLostAmount) + "c");
             CreditPayout();
             _RefreshStartInteractable();
             _SyncHiLoDisplay();

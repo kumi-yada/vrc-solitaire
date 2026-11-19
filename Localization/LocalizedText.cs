@@ -15,6 +15,9 @@ public class LocalizedText : UdonSharpBehaviour
     private string _key;
     private string _suffix = "";
     private string _suffixKey = "";
+    // Replaces "{0}" in the translation, for texts that embed a dynamic value
+    // (e.g. the hi-lo loss label shows the forfeited amount).
+    private string _formatArg = "";
 
     public TextMeshProUGUI TextElement => textElement;
 
@@ -40,6 +43,7 @@ public class LocalizedText : UdonSharpBehaviour
     {
         _key = key;
         _suffixKey = "";
+        _formatArg = "";
         _OnLanguageChanged();
     }
 
@@ -47,6 +51,7 @@ public class LocalizedText : UdonSharpBehaviour
     {
         _suffix = suffix;
         _suffixKey = "";
+        _formatArg = "";
         _OnLanguageChanged();
     }
 
@@ -55,6 +60,7 @@ public class LocalizedText : UdonSharpBehaviour
         _key = key;
         _suffix = suffix;
         _suffixKey = "";
+        _formatArg = "";
         _OnLanguageChanged();
     }
 
@@ -64,6 +70,7 @@ public class LocalizedText : UdonSharpBehaviour
         _key = key;
         _suffix = suffix;
         _suffixKey = "";
+        _formatArg = "";
         _OnLanguageChanged();
     }
 
@@ -73,6 +80,15 @@ public class LocalizedText : UdonSharpBehaviour
         _key = key;
         _suffix = "";
         _suffixKey = suffixKey;
+        _formatArg = "";
+        _OnLanguageChanged();
+    }
+
+    public void SetKeyAndFormatArg(string key, string formatArg)
+    {
+        _key = key;
+        _formatArg = formatArg == null ? "" : formatArg;
+        _suffixKey = "";
         _OnLanguageChanged();
     }
 
@@ -80,7 +96,9 @@ public class LocalizedText : UdonSharpBehaviour
     {
         if (localization == null || textElement == null) return;
         string suffix = string.IsNullOrEmpty(_suffixKey) ? _suffix : localization.GetText(_suffixKey);
-        textElement.text = _prefix + localization.GetText(_key) + suffix;
+        string text = localization.GetText(_key);
+        if (!string.IsNullOrEmpty(_formatArg)) text = text.Replace("{0}", _formatArg);
+        textElement.text = _prefix + text + suffix;
         if (verboseLogging)
             Debug.Log($"[LocalizedText] _OnLanguageChanged '{gameObject.name}' key='{_key}' -> '{textElement.text}'");
     }

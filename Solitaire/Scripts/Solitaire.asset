@@ -44,7 +44,7 @@ MonoBehaviour:
       Data: 
     - Name: 
       Entry: 12
-      Data: 118
+      Data: 119
     - Name: 
       Entry: 7
       Data: 
@@ -2767,10 +2767,10 @@ MonoBehaviour:
     - Name: tooltip
       Entry: 1
       Data: 'Question label at the top of the hi-lo dialog. Solitaire rewrites it
-        per round: HI_LO_PICK while a round waits for a pick, HI_LO_WIN/HI_LO_TIE/HI_LO_LOSE
-        once it is settled. Wired to the dialog''s Question label in the table prefabs;
-        if unassigned, resolved from DoubleOrNothingDialog''s Panel/Question child
-        in Start.'
+        per round: HI_LO_PICK while a round waits for a pick (no amount), HI_LO_WIN/HI_LO_TIE/HI_LO_LOSE
+        once it is settled with the pot amount appended (the forfeited amount on
+        a loss). Wired to the dialog''s Question label in the table prefabs; if unassigned,
+        resolved from DoubleOrNothingDialog''s Panel/Question child in Start.'
     - Name: 
       Entry: 8
       Data: 
@@ -2831,9 +2831,9 @@ MonoBehaviour:
       Data: YES/NO button row inside the hi-lo dialog, below the cards. Its buttons
         call _ConfirmNewGame/_CancelNewGame, which resolve the between-rounds continue
         question. Shown only while that question is pending (never after a lost round
-        - that leaves the dialog up with the start/quit button as the way out). If
-        unassigned, resolved from DoubleOrNothingDialog's Panel/Buttons child in
-        Start.
+        - that leaves the dialog up with the start/quit button as the way out), and
+        only on the dealer's client - spectators never see it. If unassigned, resolved
+        from DoubleOrNothingDialog's Panel/Buttons child in Start.
     - Name: 
       Entry: 8
       Data: 
@@ -2893,8 +2893,9 @@ MonoBehaviour:
       Entry: 1
       Data: Label of the between-rounds continue question inside the hi-lo dialog
         (below the cards). Shown only while the question is pending, with the HI_LO_CONTINUE
-        key and no pot amount. If unassigned, resolved from DoubleOrNothingDialog's
-        Panel/Text (TMP) child in Start.
+        key and no pot amount, and only on the dealer's client - spectators never
+        see it. If unassigned, resolved from DoubleOrNothingDialog's Panel/Text (TMP)
+        child in Start.
     - Name: 
       Entry: 8
       Data: 
@@ -4188,19 +4189,19 @@ MonoBehaviour:
       Data: 
     - Name: $k
       Entry: 1
-      Data: syncedHiLoContinueShown
+      Data: syncedHiLoAmount
     - Name: $v
       Entry: 7
       Data: 237|UdonSharp.Compiler.FieldDefinition, UdonSharp.Editor
     - Name: <Name>k__BackingField
       Entry: 1
-      Data: syncedHiLoContinueShown
+      Data: syncedHiLoAmount
     - Name: <UserType>k__BackingField
       Entry: 9
-      Data: 204
+      Data: 15
     - Name: <SystemType>k__BackingField
       Entry: 9
-      Data: 204
+      Data: 15
     - Name: <SyncMode>k__BackingField
       Entry: 7
       Data: System.Nullable`1[[UdonSharp.UdonSyncMode, UdonSharp.Runtime]], mscorlib
@@ -5970,25 +5971,19 @@ MonoBehaviour:
       Data: 
     - Name: $k
       Entry: 1
-      Data: hiLoCardA
+      Data: hiLoLostAmount
     - Name: $v
       Entry: 7
       Data: 312|UdonSharp.Compiler.FieldDefinition, UdonSharp.Editor
     - Name: <Name>k__BackingField
       Entry: 1
-      Data: hiLoCardA
+      Data: hiLoLostAmount
     - Name: <UserType>k__BackingField
-      Entry: 7
-      Data: 313|System.RuntimeType, mscorlib
-    - Name: 
-      Entry: 1
-      Data: org.kumagee.CardLogic, Assembly-CSharp
-    - Name: 
-      Entry: 8
-      Data: 
+      Entry: 9
+      Data: 15
     - Name: <SystemType>k__BackingField
       Entry: 9
-      Data: 10
+      Data: 15
     - Name: <SyncMode>k__BackingField
       Entry: 7
       Data: System.Nullable`1[[UdonSharp.UdonSyncMode, UdonSharp.Runtime]], mscorlib
@@ -6003,7 +5998,7 @@ MonoBehaviour:
       Data: false
     - Name: _fieldAttributes
       Entry: 7
-      Data: 314|System.Collections.Generic.List`1[[System.Attribute, mscorlib]],
+      Data: 313|System.Collections.Generic.List`1[[System.Attribute, mscorlib]],
         mscorlib
     - Name: 
       Entry: 12
@@ -6025,16 +6020,22 @@ MonoBehaviour:
       Data: 
     - Name: $k
       Entry: 1
-      Data: hiLoCardB
+      Data: hiLoCardA
     - Name: $v
       Entry: 7
-      Data: 315|UdonSharp.Compiler.FieldDefinition, UdonSharp.Editor
+      Data: 314|UdonSharp.Compiler.FieldDefinition, UdonSharp.Editor
     - Name: <Name>k__BackingField
       Entry: 1
-      Data: hiLoCardB
+      Data: hiLoCardA
     - Name: <UserType>k__BackingField
-      Entry: 9
-      Data: 313
+      Entry: 7
+      Data: 315|System.RuntimeType, mscorlib
+    - Name: 
+      Entry: 1
+      Data: org.kumagee.CardLogic, Assembly-CSharp
+    - Name: 
+      Entry: 8
+      Data: 
     - Name: <SystemType>k__BackingField
       Entry: 9
       Data: 10
@@ -6074,19 +6075,19 @@ MonoBehaviour:
       Data: 
     - Name: $k
       Entry: 1
-      Data: hiLoAnchorA
+      Data: hiLoCardB
     - Name: $v
       Entry: 7
       Data: 317|UdonSharp.Compiler.FieldDefinition, UdonSharp.Editor
     - Name: <Name>k__BackingField
       Entry: 1
-      Data: hiLoAnchorA
+      Data: hiLoCardB
     - Name: <UserType>k__BackingField
       Entry: 9
-      Data: 53
+      Data: 315
     - Name: <SystemType>k__BackingField
       Entry: 9
-      Data: 53
+      Data: 10
     - Name: <SyncMode>k__BackingField
       Entry: 7
       Data: System.Nullable`1[[UdonSharp.UdonSyncMode, UdonSharp.Runtime]], mscorlib
@@ -6123,13 +6124,13 @@ MonoBehaviour:
       Data: 
     - Name: $k
       Entry: 1
-      Data: hiLoAnchorB
+      Data: hiLoAnchorA
     - Name: $v
       Entry: 7
       Data: 319|UdonSharp.Compiler.FieldDefinition, UdonSharp.Editor
     - Name: <Name>k__BackingField
       Entry: 1
-      Data: hiLoAnchorB
+      Data: hiLoAnchorA
     - Name: <UserType>k__BackingField
       Entry: 9
       Data: 53
@@ -6172,19 +6173,19 @@ MonoBehaviour:
       Data: 
     - Name: $k
       Entry: 1
-      Data: hiLoInteractA
+      Data: hiLoAnchorB
     - Name: $v
       Entry: 7
       Data: 321|UdonSharp.Compiler.FieldDefinition, UdonSharp.Editor
     - Name: <Name>k__BackingField
       Entry: 1
-      Data: hiLoInteractA
+      Data: hiLoAnchorB
     - Name: <UserType>k__BackingField
       Entry: 9
-      Data: 121
+      Data: 53
     - Name: <SystemType>k__BackingField
       Entry: 9
-      Data: 10
+      Data: 53
     - Name: <SyncMode>k__BackingField
       Entry: 7
       Data: System.Nullable`1[[UdonSharp.UdonSyncMode, UdonSharp.Runtime]], mscorlib
@@ -6221,13 +6222,13 @@ MonoBehaviour:
       Data: 
     - Name: $k
       Entry: 1
-      Data: hiLoInteractB
+      Data: hiLoInteractA
     - Name: $v
       Entry: 7
       Data: 323|UdonSharp.Compiler.FieldDefinition, UdonSharp.Editor
     - Name: <Name>k__BackingField
       Entry: 1
-      Data: hiLoInteractB
+      Data: hiLoInteractA
     - Name: <UserType>k__BackingField
       Entry: 9
       Data: 121
@@ -6270,16 +6271,16 @@ MonoBehaviour:
       Data: 
     - Name: $k
       Entry: 1
-      Data: hiLoQuestionLabel
+      Data: hiLoInteractB
     - Name: $v
       Entry: 7
       Data: 325|UdonSharp.Compiler.FieldDefinition, UdonSharp.Editor
     - Name: <Name>k__BackingField
       Entry: 1
-      Data: hiLoQuestionLabel
+      Data: hiLoInteractB
     - Name: <UserType>k__BackingField
       Entry: 9
-      Data: 98
+      Data: 121
     - Name: <SystemType>k__BackingField
       Entry: 9
       Data: 10
@@ -6319,13 +6320,13 @@ MonoBehaviour:
       Data: 
     - Name: $k
       Entry: 1
-      Data: hiLoContinueLabel
+      Data: hiLoQuestionLabel
     - Name: $v
       Entry: 7
       Data: 327|UdonSharp.Compiler.FieldDefinition, UdonSharp.Editor
     - Name: <Name>k__BackingField
       Entry: 1
-      Data: hiLoContinueLabel
+      Data: hiLoQuestionLabel
     - Name: <UserType>k__BackingField
       Entry: 9
       Data: 98
@@ -6368,19 +6369,19 @@ MonoBehaviour:
       Data: 
     - Name: $k
       Entry: 1
-      Data: hiLoContinueRow
+      Data: hiLoContinueLabel
     - Name: $v
       Entry: 7
       Data: 329|UdonSharp.Compiler.FieldDefinition, UdonSharp.Editor
     - Name: <Name>k__BackingField
       Entry: 1
-      Data: hiLoContinueRow
+      Data: hiLoContinueLabel
     - Name: <UserType>k__BackingField
       Entry: 9
-      Data: 93
+      Data: 98
     - Name: <SystemType>k__BackingField
       Entry: 9
-      Data: 93
+      Data: 10
     - Name: <SyncMode>k__BackingField
       Entry: 7
       Data: System.Nullable`1[[UdonSharp.UdonSyncMode, UdonSharp.Runtime]], mscorlib
@@ -6417,19 +6418,19 @@ MonoBehaviour:
       Data: 
     - Name: $k
       Entry: 1
-      Data: playerDataReady
+      Data: hiLoContinueRow
     - Name: $v
       Entry: 7
       Data: 331|UdonSharp.Compiler.FieldDefinition, UdonSharp.Editor
     - Name: <Name>k__BackingField
       Entry: 1
-      Data: playerDataReady
+      Data: hiLoContinueRow
     - Name: <UserType>k__BackingField
       Entry: 9
-      Data: 204
+      Data: 93
     - Name: <SystemType>k__BackingField
       Entry: 9
-      Data: 204
+      Data: 93
     - Name: <SyncMode>k__BackingField
       Entry: 7
       Data: System.Nullable`1[[UdonSharp.UdonSyncMode, UdonSharp.Runtime]], mscorlib
@@ -6466,19 +6467,19 @@ MonoBehaviour:
       Data: 
     - Name: $k
       Entry: 1
-      Data: dealCol
+      Data: playerDataReady
     - Name: $v
       Entry: 7
       Data: 333|UdonSharp.Compiler.FieldDefinition, UdonSharp.Editor
     - Name: <Name>k__BackingField
       Entry: 1
-      Data: dealCol
+      Data: playerDataReady
     - Name: <UserType>k__BackingField
       Entry: 9
-      Data: 4
+      Data: 204
     - Name: <SystemType>k__BackingField
       Entry: 9
-      Data: 4
+      Data: 204
     - Name: <SyncMode>k__BackingField
       Entry: 7
       Data: System.Nullable`1[[UdonSharp.UdonSyncMode, UdonSharp.Runtime]], mscorlib
@@ -6515,13 +6516,13 @@ MonoBehaviour:
       Data: 
     - Name: $k
       Entry: 1
-      Data: dealDepth
+      Data: dealCol
     - Name: $v
       Entry: 7
       Data: 335|UdonSharp.Compiler.FieldDefinition, UdonSharp.Editor
     - Name: <Name>k__BackingField
       Entry: 1
-      Data: dealDepth
+      Data: dealCol
     - Name: <UserType>k__BackingField
       Entry: 9
       Data: 4
@@ -6564,25 +6565,19 @@ MonoBehaviour:
       Data: 
     - Name: $k
       Entry: 1
-      Data: dealOwner
+      Data: dealDepth
     - Name: $v
       Entry: 7
       Data: 337|UdonSharp.Compiler.FieldDefinition, UdonSharp.Editor
     - Name: <Name>k__BackingField
       Entry: 1
-      Data: dealOwner
+      Data: dealDepth
     - Name: <UserType>k__BackingField
-      Entry: 7
-      Data: 338|System.RuntimeType, mscorlib
-    - Name: 
-      Entry: 1
-      Data: VRC.SDKBase.VRCPlayerApi, VRCSDKBase
-    - Name: 
-      Entry: 8
-      Data: 
+      Entry: 9
+      Data: 4
     - Name: <SystemType>k__BackingField
       Entry: 9
-      Data: 338
+      Data: 4
     - Name: <SyncMode>k__BackingField
       Entry: 7
       Data: System.Nullable`1[[UdonSharp.UdonSyncMode, UdonSharp.Runtime]], mscorlib
@@ -6597,7 +6592,7 @@ MonoBehaviour:
       Data: false
     - Name: _fieldAttributes
       Entry: 7
-      Data: 339|System.Collections.Generic.List`1[[System.Attribute, mscorlib]],
+      Data: 338|System.Collections.Generic.List`1[[System.Attribute, mscorlib]],
         mscorlib
     - Name: 
       Entry: 12
@@ -6619,19 +6614,25 @@ MonoBehaviour:
       Data: 
     - Name: $k
       Entry: 1
-      Data: dealPhase
+      Data: dealOwner
     - Name: $v
       Entry: 7
-      Data: 340|UdonSharp.Compiler.FieldDefinition, UdonSharp.Editor
+      Data: 339|UdonSharp.Compiler.FieldDefinition, UdonSharp.Editor
     - Name: <Name>k__BackingField
       Entry: 1
-      Data: dealPhase
+      Data: dealOwner
     - Name: <UserType>k__BackingField
-      Entry: 9
-      Data: 4
+      Entry: 7
+      Data: 340|System.RuntimeType, mscorlib
+    - Name: 
+      Entry: 1
+      Data: VRC.SDKBase.VRCPlayerApi, VRCSDKBase
+    - Name: 
+      Entry: 8
+      Data: 
     - Name: <SystemType>k__BackingField
       Entry: 9
-      Data: 4
+      Data: 340
     - Name: <SyncMode>k__BackingField
       Entry: 7
       Data: System.Nullable`1[[UdonSharp.UdonSyncMode, UdonSharp.Runtime]], mscorlib
@@ -6668,10 +6669,59 @@ MonoBehaviour:
       Data: 
     - Name: $k
       Entry: 1
-      Data: drawRemaining
+      Data: dealPhase
     - Name: $v
       Entry: 7
       Data: 342|UdonSharp.Compiler.FieldDefinition, UdonSharp.Editor
+    - Name: <Name>k__BackingField
+      Entry: 1
+      Data: dealPhase
+    - Name: <UserType>k__BackingField
+      Entry: 9
+      Data: 4
+    - Name: <SystemType>k__BackingField
+      Entry: 9
+      Data: 4
+    - Name: <SyncMode>k__BackingField
+      Entry: 7
+      Data: System.Nullable`1[[UdonSharp.UdonSyncMode, UdonSharp.Runtime]], mscorlib
+    - Name: 
+      Entry: 6
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: <IsSerialized>k__BackingField
+      Entry: 5
+      Data: false
+    - Name: _fieldAttributes
+      Entry: 7
+      Data: 343|System.Collections.Generic.List`1[[System.Attribute, mscorlib]],
+        mscorlib
+    - Name: 
+      Entry: 12
+      Data: 0
+    - Name: 
+      Entry: 13
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: drawRemaining
+    - Name: $v
+      Entry: 7
+      Data: 344|UdonSharp.Compiler.FieldDefinition, UdonSharp.Editor
     - Name: <Name>k__BackingField
       Entry: 1
       Data: drawRemaining
@@ -6695,7 +6745,7 @@ MonoBehaviour:
       Data: false
     - Name: _fieldAttributes
       Entry: 7
-      Data: 343|System.Collections.Generic.List`1[[System.Attribute, mscorlib]],
+      Data: 345|System.Collections.Generic.List`1[[System.Attribute, mscorlib]],
         mscorlib
     - Name: 
       Entry: 12

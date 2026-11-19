@@ -7703,10 +7703,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 899765337}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 300, y: 0}
-  m_SizeDelta: {x: 600, y: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &336526023
 MonoBehaviour:
@@ -9198,7 +9198,8 @@ MonoBehaviour:
     PrefabModifications: []
     SerializationNodes: []
   _udonSharpBackingUdonBehaviour: {fileID: 397402851}
-  yAxisOnly: 1
+  xAxisLocked: 1
+  yAxisLocked: 0
 --- !u!1 &400561899 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 5858012712768693146, guid: 3abb1fb1d98a2e0b983a3241c55dd317,
@@ -13999,7 +14000,7 @@ PrefabInstance:
     - target: {fileID: 100000000000000001, guid: 9e12c71e0b46461482485ac8f348aca6,
         type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 100000000000000002, guid: 9e12c71e0b46461482485ac8f348aca6,
         type: 3}

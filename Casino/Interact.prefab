@@ -404,7 +404,7 @@ MonoBehaviour:
     PrefabModifications: []
     SerializationNodes: []
   _udonSharpBackingUdonBehaviour: {fileID: 4783382589759655274}
-  yAxisOnly: 0
+  xAxisLocked: 0
 --- !u!114 &4783382589759655274
 MonoBehaviour:
   m_ObjectHideFlags: 0

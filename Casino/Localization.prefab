@@ -317,7 +317,7 @@ MonoBehaviour:
   - "\u66F4\u4F4E"
   - "\u6536\u53D6"
   - "\u731C\u5BF9\u4E86\uFF01"
-  - "\u731C\u9519\u4E86\uFF01\u5E95\u6C60\u5F52\u96F6\uFF01"
+  - "\u731C\u9519\u4E86\uFF01\u635F\u5931{0}\uFF01"
   - "\u5E73\u70B9\uFF01\u5E95\u6C60\u4E0D\u53D8\u3002"
   - "\u62BD\u5361"
   - "\u9AD8\u4F4E(\u6D4B\u8BD5)"
@@ -514,7 +514,7 @@ MonoBehaviour:
   - LOWER
   - COLLECT
   - Correct!
-  - "Wrong - the pot is lost!"
+  - "Wrong - {0} lost!"
   - "Tie! The pot stays."
   - PULL
   - HI-LO (TEST)
@@ -692,7 +692,7 @@ MonoBehaviour:
   - "\u4F4E\u3044"
   - "\u56DE\u53CE"
   - "\u6B63\u89E3\uFF01"
-  - "\u306F\u305A\u308C\uFF01\u30DD\u30C3\u30C8\u6CA1\u53CE\uFF01"
+  - "\u306F\u305A\u308C\uFF01{0}\u3092\u5931\u3044\u307E\u3057\u305F\uFF01"
   - "\u540C\u70B9\uFF01\u30DD\u30C3\u30C8\u306F\u305D\u306E\u307E\u307E\u3002"
   - "\u30AC\u30C1\u30E3"
   - "\u30CF\u30A4\u30ED\u30FC(\u30C6\u30B9\u30C8)"
