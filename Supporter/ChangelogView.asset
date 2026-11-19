@@ -440,8 +440,8 @@ MonoBehaviour:
       Data: 28|UnityEngine.TooltipAttribute, UnityEngine.CoreModule
     - Name: tooltip
       Entry: 1
-      Data: Title text that shows the newest version heading from the changelog file,
-        exactly as written (e.g. "2026-10-29 - v1.5 First-time guidance and QoL")
+      Data: Title text that shows the newest version from the changelog file, without
+        the date prefix (e.g. "v1.5 First-time guidance and QoL")
     - Name: 
       Entry: 8
       Data: 

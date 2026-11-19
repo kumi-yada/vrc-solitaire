@@ -8,8 +8,8 @@ using VRC.Udon.Common.Interfaces;
 
 /// <summary>
 /// Loads the changelog from a GitHub repository raw URL and shows only the
-/// newest version: its "## " heading exactly as written becomes the panel
-/// title, and its entries are shown in a text field as TMP rich text bullet
+/// newest version: its "## " heading (minus the leading release date) becomes
+/// the panel title, and its entries are shown in a text field as TMP rich text bullet
 /// points. Supports localized changelogs (e.g. CHANGELOG-ja.md)
 /// by mapping language codes to URLs. Falls back to the default changelogUrl
 /// when no translation exists for the current language or when the localized
@@ -40,7 +40,7 @@ public class ChangelogView : UdonSharpBehaviour
     [Tooltip("Text field the newest changelog version's entries are written into, as bullet points")]
     public TextMeshProUGUI changelogText;
 
-    [Tooltip("Title text that shows the newest version heading from the changelog file, exactly as written (e.g. \"2026-10-29 - v1.5 First-time guidance and QoL\")")]
+    [Tooltip("Title text that shows the newest version from the changelog file, without the date prefix (e.g. \"v1.5 First-time guidance and QoL\")")]
     public TextMeshProUGUI titleText;
 
     private const int MaxRetries = 3;
@@ -162,9 +162,9 @@ public class ChangelogView : UdonSharpBehaviour
 
     /// <summary>
     /// Renders only the newest version section of the changelog markdown: the
-    /// first "## " heading is shown verbatim in the panel title and its "- "
-    /// list items become bullet points in the text field. Falls back to the raw
-    /// markdown when no "## " section exists.
+    /// first "## " heading (date prefix stripped) is shown in the panel title
+    /// and its "- " list items become bullet points in the text field. Falls
+    /// back to the raw markdown when no "## " section exists.
     /// </summary>
     private string _FormatLatestVersion(string markdown)
     {
@@ -183,6 +183,9 @@ public class ChangelogView : UdonSharpBehaviour
                 if (inLatest) break; // start of the next (older) version
                 inLatest = true;
                 heading = line.Substring(3).Trim();
+                // Release headings are "YYYY-MM-DD - vX.Y ..."; the panel shows only the version part
+                int dateSep = heading.IndexOf(" - ");
+                if (dateSep == 10) heading = heading.Substring(dateSep + 3).Trim();
                 continue;
             }
             if (!inLatest || line == "") continue;
